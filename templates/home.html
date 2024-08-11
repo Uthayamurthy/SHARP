@@ -1,0 +1,104 @@
+{% extends "layout.html" %}
+{% set active_page = "home" %}
+
+{% block title %}Home{% endblock %}
+
+{% block heading %}
+    <div class="container-md my-2 py-2 text-center">
+        <h1 class="display-2"><i class="bi bi-house-fill"></i>  Home</h1>
+    </div>
+{% endblock %}
+
+    {% block body %}
+    <div class="container-md my-2 py-2">
+        {% for location, devices in devices_info.items() %}
+            <div class="accordion" id="accordion-{{ location }}">
+                <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button btn-lg" style="font-size: 28px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ location }}" aria-expanded="true" aria-controls="collapseOne">
+                        <i class="bi bi-geo-alt-fill"></i>  {{ location }}
+                    </button>
+                </h2>
+
+                <div id="collapse{{ location }}" class="accordion-collapse collapse show" data-bs-parent="#accordion-{{ location }}">
+                    <div class="accordion-body">
+                        {% for device, actionable in devices.items() %}
+                            <div class="row">
+                                <h4 class="h4">{{ device }}</h4>
+                            </div>
+                            <div class="row justify-content-center my-4">
+                                {% for name, info in actionable.items() %}
+                                <div class="col-3 col-md-2 align-self-center m-3 p-2">
+                                    {% if info['state'] == 'on' -%}
+                                        {% set btn_color='success' %}
+                                        {% set btn_value='off' %}
+                                    {% elif info['state'] == 'off' -%}
+                                        {% set btn_color='danger' %}
+                                        {% set btn_value='on' %}
+                                    {% else -%}
+                                        {% set btn_color='outline-secondary' %}
+                                        {% set btn_value='on' %}
+                                    {% endif %}
+                                    <button id="{{ location }}-{{ device }}-{{ name }}" class="btn btn-{{ btn_color }} btn-lg" value="{{ btn_value }}"><i class="bi bi-{{ info['icon'] }}"></i><br>{{ name | dashless }}</button>
+                                </div>
+                                {% endfor %}     
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                </div>
+            </div>
+            {% endfor %}
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+    <script type="text/javascript" charset="utf-8">
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+        var devices_info = {}
+        socket.on('connect', function()
+        {
+        console.log ("Connected to socket server.");
+        });
+
+        socket.on('devices_info', function(data)
+        {
+        // console.log ("Got devices info: ");
+        // console.log (data);
+        devices_info = data;
+        for (const location in devices_info) {
+            for (const device in devices_info[location]) {
+                for (const actionable in devices_info[location][device]) {
+                    var button_id = location + '-' + device + '-' + actionable;
+                    var button = document.getElementById(button_id);
+                    if (button) {
+                        (function(button, button_id, location, device, actionable) {
+                            button.addEventListener('click', function() {
+                            console.log("BUTTON CALLBACK : Clicked on button: " + button_id);
+                            var message = button.value;
+                            console.log("BUTTON CALLBACK : Message- " + message);
+                            socket.emit('publish', {'topic': devices_info[location][device][actionable]['action_topic'], 'state': message});
+                    });
+                })(button, button_id, location, device, actionable);
+            }
+        }
+    }
+}
+
+        });
+        
+
+        socket.on('update_state', function(data) {
+            console.log("UPDATE_STATE: Received " + data.obj_id + " - " + data.state);
+            var button = document.getElementById(data.obj_id);
+            if (data.state == 'on') {
+                button.className = 'btn btn-success btn-lg';
+                button.value = 'off';
+                
+            } else {
+                button.className = 'btn btn-danger btn-lg';
+                button.value = 'on';
+            }
+            console.log("UPDATE_STATE: Value of Button is " + button.value);
+        });
+    </script>
+{% endblock %}

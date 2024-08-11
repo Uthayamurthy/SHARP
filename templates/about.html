@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+{% set active_page = "about" %}
+
+{% block title %}About{% endblock %}
+
+{% block heading %}
+    <div class="container-md my-2 py-2 text-center">
+        <h1 class="display-3"><i class="bi bi-info-square-fill"></i>  About</h1>
+    </div>
+{% endblock %}
+
+{% block body %}
+<hr>
+<div class="container-md my-2 py-2 text-center">
+    <h1 class="display-2"><i class="bi bi-hash"></i>  SHARP <small> </small></h1>
+    <h3 class="h3 text-muted"> <strong>S</strong>mart <strong>H</strong>ome <strong>A</strong>utomation <strong>R</strong>esearch <strong>P</strong>roject </h3>
+    
+    <h3 class="h3"> <strong>Version: </strong><span class="badge text-bg-success mx-2">V{{ version }}</span></h3>
+
+    <h3 class="h3"> <strong>Author : </strong><a class="text-decoration-none text-secondary" href="https://github.com/Uthayamurthy/" target="_blank">R Uthaya Murthy</h3>
+</div>
+{% endblock %}

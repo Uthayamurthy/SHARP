@@ -1,0 +1,128 @@
+{% extends "layout.html" %}
+{% set active_page = "automations" %}
+
+{% block title %}Automations{% endblock %}
+{% block heading %}
+<div class="container-md my-2 py-2 text-center">
+    <h1 class="display-2"><i class="bi bi-house-gear-fill"></i>  Automations</h1>
+</div>
+{% endblock %}
+
+{% block body %}
+    <div class="container-md my-2 py-2">
+        <button class="btn btn-primary float-end my-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#createAutomationOffcanvas" aria-controls="offcanvasExample">
+            <i class="bi bi-plus-circle-dotted"></i>  New Automation
+        </button>
+    </div>
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="createAutomationOffcanvas" aria-labelledby="offcanvasLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="offcanvasLabel"><i class="bi bi-stars"></i>  Create New Automation</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body justify-content-center">
+            <form action="/new-automation" method="post">
+                <div class="form-group mb-3">
+                    <label for="automationName" class="h6 form-label"><i class="bi bi-alphabet"></i> Automation Name</label>
+                    <input required class="form-control" name="automation_name" id="automationName" placeholder="Eg: Evening Lights" type="text">
+                </div>
+                <div class="form-group mb-3">
+                    <label for="selectDevice" class="h6 form-label"><i class="bi bi-gear-fill"></i> Device</label>
+                    <select required class="form-select form-control" id="selectDevice" name="device_detail">
+                        <option selected disabled value="">Select Device</option>
+                        {% for device in devices %}
+                            <option value="{{ device }}">{{ device }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="selectActionable" class="h6 form-label"><i class="bi bi-lightning-charge-fill"></i> Actionable</label>
+                    <select  required class="form-select form-control" id="selectActionable" name="actionable">
+                        <option selected disabled value="">Select Actionable</option>
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="selectAutomation" class="h6 form-label"><i class="bi bi-braces"></i> Automation Type</label>
+                    <select  required class="form-select form-control" id="selectAutomation" name="automation_type" required>
+                        <option selected value="TIME-SCHEDULED">TIME SCHEDULED</option>
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="startTime" class="h6 form-label"><i class="bi bi-clock-fill"></i> Start Time</label>
+                    <input  required class="form-control" name="start_time" id="startTime" type="time">
+                </div>
+                <div class="form-group mb-3">
+                    <label for="endTime" class="h6 form-label"><i class="bi bi-clock-fill"></i> End Time</label>
+                    <input  required class="form-control" name="end_time" id="endTime" type="time">
+                </div>
+                <button class="btn btn-outline-success" type="submit">Create</button>
+            </form>
+        </div>
+    </div>
+    <!--Ofcanvas Ends-->
+    <div class="container-md">
+        {% for am_name, am_info  in automations.items() %}
+            <div class="row  border border-secondary p-3 m-3 text-center justify-content-center">
+                <div class="container-fluid">
+                    <div class="row">
+                        <div class="col">
+                            <span class="h3"><i class="bi bi-stars"></i>  {{ am_name | dashless}}{% if am_info['enabled'] == false -%}<small class="text-muted">(paused)</small>{% endif %}</span> </div>
+                        </div>
+                        <div class="col">
+                            <span class="badge text-bg-success mx-2">{{ am_info['AUTO_TYPE'] }}</span>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col my-2 mx-4">
+                            <p class="lead"><strong><i class="bi bi-gear-fill"></i> Device: </strong>{{ am_info['location'] }}::{{ am_info['device'] }}</p>
+                            <p class="lead"><strong><i class="bi bi-lightning-charge-fill"></i> Actionable: </strong>{{ am_info['actionable'] | dashless }}</p>
+                        </div>
+                        <div class="col my-2 mx-4">
+                            <p class="lead"><strong><i class="bi bi-clock-fill"></i> Start Time: </strong><span class="text-success">{{ am_info['AUTO_PARAMS']['start_time'] | format_time }} </span></p>
+                            <p class="lead"><strong><i class="bi bi-clock-fill"></i> End Time: </strong><span class="text-danger">{{ am_info['AUTO_PARAMS']['end_time'] | format_time }}</span></p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <form action="/toggle-automation" method="post">
+                                {% if am_info['enabled'] == true %}
+                                <button class="btn btn-outline-secondary" value="{{ am_name }}--pause" name="toggle_am_name"><i class="bi bi-pause-circle-fill"></i> Pause</button>
+                                {% else %}
+                                <button class="btn btn-outline-success" value="{{ am_name }}--resume" name="toggle_am_name"><i class="bi bi-play-fill"></i> Resume</button>
+                                {% endif %}
+                            </form>
+                        </div>
+                        <div class="col">
+                            <form action="/delete-automation" method="post">
+                                <button class="btn btn-outline-danger" value="{{ am_name }}" name="delete_am_name"><i class="bi bi-trash-fill"></i> Delete</button>
+                            </form>
+                        </div>
+                    </div>
+
+            </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const actionables = {{ actionables | tojson | safe}};
+            const selectDevice = document.getElementById('selectDevice');
+            const selectActionable = document.getElementById('selectActionable');
+
+            selectDevice.addEventListener('change', function () {
+                const selectedDevice = this.value;
+                const options = actionables[selectedDevice] || [];
+                
+                selectActionable.innerHTML = '<option selected disabled value="">Choose...</option>';
+                
+                options.forEach(function (actionable) {
+                    const option = document.createElement('option');
+                    option.value = actionable;
+                    option.textContent = actionable;
+                    selectActionable.appendChild(option);
+                });
+            });
+        });
+    </script>
+
+{% endblock %}
