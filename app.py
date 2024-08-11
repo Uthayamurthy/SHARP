@@ -1,5 +1,4 @@
 import eventlet
-
 eventlet.monkey_patch()
 
 from automation_agent import AUTO_AGENT
@@ -20,9 +19,6 @@ with open('config/flask_app_conf.json', 'r') as f:
 with open('config/mqtt_conf.json', 'r') as f:
     mqtt_conf = json.load(f)
 
-app.config['SECRET_KEY'] = flask_conf['SECRET_KEY']
-app.config['TEMPLATES_AUTO_RELOAD'] = flask_conf['TEMPLATES_AUTO_RELOAD']
-
 app.config['MQTT_BROKER_URL'] = mqtt_conf['MQTT_HOST']
 app.config['MQTT_BROKER_PORT'] = mqtt_conf['MQTT_PORT']
 app.config['MQTT_CLIENT_ID'] = mqtt_conf["MQTT_SHARP_CLIENT_ID"]
@@ -34,6 +30,10 @@ app.config['MQTT_TLS_ENABLED'] = mqtt_conf['MQTT_TLS_ENABLED']
 app.config['MQTT_LAST_WILL_TOPIC'] = mqtt_conf['MQTT_LAST_WILL_TOPIC']
 app.config['MQTT_LAST_WILL_MESSAGE'] = mqtt_conf['MQTT_LAST_WILL_MESSAGE']
 app.config['MQTT_LAST_WILL_QOS'] = mqtt_conf['MQTT_LAST_WILL_QOS']
+
+app.config['SECRET_KEY'] = flask_conf['SECRET_KEY']
+app.config['TEMPLATES_AUTO_RELOAD'] = flask_conf['TEMPLATES_AUTO_RELOAD']
+
 
 mqtt = Mqtt(app)
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
@@ -224,9 +224,11 @@ def toggle_automation():
 def about():
     return render_template('about.html', version=version)
 
-if __name__ == '__main__':
-    # run app in debug mode on port 5000
-    with app.app_context():
+with app.app_context():
         setup()
         start_auto_agent()
+        
+if __name__ == '__main__':
+    # run app in debug mode on port 5000
+
     socketio.run(app, port=5000, host='0.0.0.0', use_reloader=False)
