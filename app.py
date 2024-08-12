@@ -1,6 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
-
 from automation_agent import AUTO_AGENT
 from flask import Flask, render_template, request, redirect, flash
 from flask_mqtt import Mqtt
@@ -36,7 +33,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = flask_conf['TEMPLATES_AUTO_RELOAD']
 
 
 mqtt = Mqtt(app)
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
+socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*")
 agent_conn = None # The pipe to communicate with auto agent process 
 
 def format_time_12hr(time_str):
