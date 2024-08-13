@@ -122,7 +122,7 @@ def home():
 
 @app.route('/devices')
 def devices():
-    return render_template('devices.html')
+    return render_template('devices.html', devices_info=devices_info)
 
 @app.route('/automations')
 def automations():
