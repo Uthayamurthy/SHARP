@@ -9,6 +9,8 @@ from  logs_loader import load_logs
 import multiprocessing 
 import json
 
+print('SHARP: Starting up...')
+
 app = Flask(__name__)
 
 log_items = None
@@ -63,9 +65,7 @@ def setup():
                 for actionable_name, info in actionable.items():
                     topic = info['ack_topic']
                     try:
-                        print(f'Subscribing to the topic: {topic}')
                         b = mqtt.subscribe(topic=topic)
-                        print(f'SHARP : Subscribe returned {b}')
                     except:
                         print(f'SHARP : Failed to subscribe to the topic: {topic}')
 
@@ -85,8 +85,6 @@ def handle_mqtt_message(client, userdata, message):
     topic = message.topic
     state = message.payload.decode()
 
-    print('-'*25)
-    print(f'MQTT on_message: Received message: {state} on topic: {topic}')
     obj_id = ''
 
     for location, device in devices_info.items():
@@ -94,30 +92,22 @@ def handle_mqtt_message(client, userdata, message):
             for actionable_name, info in actionable.items():
                 if info['ack_topic'] == topic:
                     obj_id = f'{location}-{device_name}-{actionable_name}'
-                    print(f'Object ID: {obj_id}')
-                    print(f'New state: {state}')
+                    print(f'SHARP : Received message from {obj_id}, New state is "{state}" ')
                     devices_info[location][device_name][actionable_name]['state'] = state
                     socketio.emit('update_state', data={'obj_id': obj_id, 'state': state})
 
-    print('-'*25)
-
-
 @socketio.on('connect')
 def on_connect ():
-    print('Socket client connected.')
+    print('SHARP : New Socket client connected.')
     socketio.send('Socket server ready.')
     socketio.emit('devices_info', data=devices_info)
 
 @socketio.on('publish')
 def on_publish(data):
-    print('-'*25)
     topic = data['topic']
     state = data['state']
-    print(f'Socketio on_publish: Publishing {state} to {topic}')
     sleep(0.1)
     a = mqtt.publish(topic, state, qos=1)
-    print(f' SHARP : Publish returned : {a}')
-    print('-'*25)
 
 @app.route('/')
 def home():
@@ -172,7 +162,7 @@ def new_automation():
             'end_time': end_time
         }
     }
-
+    print(f'SHARP: Added New Automation "{automation_name}" for {location}::{device}::{actionable}')
     with open('data/automations.json', 'w') as am_file:
         json.dump(automations, am_file, indent=4)
 
@@ -195,6 +185,8 @@ def delete_automation():
 
     agent_conn.send('RELOAD')
 
+    print(f'SHARP: Deleted Automation "{automation_name}" ')
+
     flash(f'Automation: {automation_name} deleted !', 'danger')
     return redirect('/automations')
 
@@ -207,9 +199,11 @@ def toggle_automation():
 
     if state == 'pause':
         automations[automation_name]['enabled'] = False
+        print(f'SHARP: Paused Automation "{automation_name}" ')
         flash(f'Automation: {automation_name} paused !', 'primary')
     else:
         automations[automation_name]['enabled'] = True
+        print(f'SHARP: Resumed Automation "{automation_name}" ')
         flash(f'Automation: {automation_name} resumed !', 'primary')
 
     with open('data/automations.json', 'w') as am_file:

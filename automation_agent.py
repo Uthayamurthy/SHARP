@@ -37,13 +37,13 @@ class TIME_SCHEDULER:
         if self.is_time():
             if not self.on and not self.published_on:
                 self.client.publish(self.pub_topic, 'on', qos=1)
-                print(f"SHARP AUTO AGENT TS: {self.alias} published 'on' to {self.pub_topic} ")
+                print(f"SHARP AUTO AGENT TS: Published 'on' to {self.pub_topic} for automation - {self.alias}")
                 sleep(0.25)
                 self.published_on = True
                 self.published_off = False
         else:
             if self.on and not self.published_off:
-                    print(f"SHARP AUTO AGENT TS: {self.alias} published 'off' to {self.pub_topic} ")
+                    print(f"SHARP AUTO AGENT TS: Published 'off' to {self.pub_topic} for automation - {self.alias}")
                     self.client.publish(self.pub_topic, 'off', qos=1)
                     self.published_off = True
                     self.published_on = False
@@ -79,9 +79,10 @@ class AUTO_AGENT:
         self.client.loop_start()
 
         sleep(0.5)
+
         while self.CONNECTED != True:
             sleep(0.1)
-            print('SHARP AUTO AGENT : Waiting for connection ......')
+            print('SHARP AUTO AGENT : Waiting for MQTT connection ......')
             
     def init_automators(self):
         for auto_name, auto_info in self.automations.items():
@@ -97,7 +98,7 @@ class AUTO_AGENT:
                 else:
                     self.msg_handles[ack_topic].append(ts.on_ack)
 
-                print(f"SHARP AUTO AGENT : Added automator - {auto_name}, TYPE - TIME-SCHEDULED, for {auto_info['location']}::{auto_info['device']}::auto_info['actionable']")            
+                print(f"SHARP AUTO AGENT : Loaded automator - {auto_name}, TYPE - TIME-SCHEDULED, for {auto_info['location']}::{auto_info['device']}::{auto_info['actionable']}")            
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -109,8 +110,6 @@ class AUTO_AGENT:
     def on_message(self, client, userdata, message):
         payload = str(message.payload.decode("utf-8"))
         topic = message.topic
-
-        print(f"SHARP AUTO AGENT : Received message : {payload} on topic : {topic}")
 
         if topic in self.msg_handles:
             for handle in self.msg_handles[topic]:
@@ -135,7 +134,6 @@ class AUTO_AGENT:
 
             if self.conn.poll():
                 msg = self.conn.recv()
-                print(f"SHARP AUTO AGENT : Received Pipe message : {msg}")
                 if msg == 'RELOAD':
                     self.unsubscribe()
                     self.automators = []
