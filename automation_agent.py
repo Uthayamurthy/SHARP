@@ -31,7 +31,6 @@ class TIME_SCHEDULER:
             self.on = True
         else:
             self.on = False
-        self.retries = 0 # Reset retries when ack received
 
     def loop(self):
 
