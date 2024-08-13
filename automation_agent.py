@@ -14,7 +14,9 @@ class TIME_SCHEDULER:
         self.end_time = datetime.strptime(end_time, time_format).time()
         self.on = False
         self.published_on = False
-        self.published_off = False
+
+        self.client.publish(self.pub_topic, 'off', qos=1) # Publish 'off' to start with
+        self.published_off = True
 
     def is_time(self):
         time_now = datetime.now().time()
