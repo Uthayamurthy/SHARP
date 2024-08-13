@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+{% set active_page = "logs" %}
+
+{% block title %}Logs{% endblock %}
+
+{% block heading %}
+    <div class="container-md my-2 py-2 text-center">
+        <h1 class="display-2"><i class="bi bi-clock-history"></i>  Logs</h1>
+    </div>
+{% endblock %}
+
+{% block body %}
+
+    <form method="get" class="form-inline mx-2">
+    <div class="container-fluid text-center">
+        <div class="row">
+            <div class="col-md-3 col-lg-3 m-4">
+                <span  class="lead mx-2">Logs per page:</span>
+            </div>
+            <div class="col-md-4 col-lg-3 m-4">
+                <input type="number" name="per_page" id="per_page" value="{{ per_page }}" class="form-control mr-2">
+            </div>
+            <div class="col-md-3 col-lg-2 m-4">
+                <button type="submit" class="btn btn-outline-primary"><i class="bi bi-funnel-fill"></i> Set</button>
+            </div>
+        </div>
+    </div>
+    </form>
+
+    <table class="table table-striped my-5">
+        <thead>
+            <tr>
+                <th scope="col">S.No</th>
+                <th scope="col"><i class="bi bi-calendar"></i> Date</th>
+                <th scope="col"><i class="bi bi-hourglass-split"></i> Time</th>
+                <th scope="col"><i class="bi bi-card-text"></i> Message</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+                <tr>
+                    <th scope="row">{{ item[0] }}</th>
+                    <td> {{ item[1] }} </td>
+                    <td> {{ item[2] }} </td>
+                    <td> {{ item[3] }} </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <nav>
+        <ul class="pagination">
+            <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                <a class="page-link" href="?page=1&per_page={{ per_page }}">Latest</a>
+            </li>
+            <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ page - 1 }}&per_page={{ per_page }}"><i class="bi bi-arrow-left-circle"></i>   Previous</a>
+            </li>
+            <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ page + 1 }}&per_page={{ per_page }}">Next   <i class="bi bi-arrow-right-circle"></i> </a>
+            </li>
+            <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                <a class="page-link" href="?page={{ total_pages }}&per_page={{ per_page }}">Oldest</a>
+            </li>
+        </ul>
+    </nav>
+</div>
+{% endblock %}

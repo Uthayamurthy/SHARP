@@ -5,10 +5,13 @@ from flask_socketio import SocketIO
 from datetime import datetime
 from time import sleep
 from __version__ import version
+from  logs_loader import load_logs
 import multiprocessing 
 import json
 
 app = Flask(__name__)
+
+log_items = None
 
 with open('config/flask_app_conf.json', 'r') as f:
     flask_conf = json.load(f)
@@ -220,6 +223,28 @@ def toggle_automation():
 @app.route('/about')
 def about():
     return render_template('about.html', version=version)
+
+@app.route('/logs')
+def logs():
+    global log_items
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
+
+    if page == 1:
+        log_items = load_logs()
+
+    if log_items == None:
+        return "Failed to get the logs, looks like SHARP Service is not enabled ..."
+    
+    total_items = len(log_items)
+    total_pages = (total_items + per_page - 1) // per_page
+    
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated_items = log_items[start:end]
+    
+    return render_template('logs.html', items=paginated_items, page=page, per_page=per_page, total_pages=total_pages)
 
 with app.app_context():
         setup()
