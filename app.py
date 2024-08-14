@@ -257,7 +257,6 @@ def handle_sigterm(*args):
     mqtt.client.loop_stop()
     mqtt.client.disconnect()
     agent_conn.send('STOP')
-    socketio.stop()
     print("SHARP: Exiting ...")
     exit(0)
 
