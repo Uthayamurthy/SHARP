@@ -56,10 +56,10 @@
                 <a class="page-link" href="?page=1&per_page={{ per_page }}">Latest</a>
             </li>
             <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-                <a class="page-link" href="?page={{ page - 1 }}&per_page={{ per_page }}"><i class="bi bi-arrow-left-circle"></i>   Previous</a>
+                <a class="page-link" href="?page={{ page - 1 }}&per_page={{ per_page }}"><i class="bi bi-arrow-left-circle"></i>   Next</a>
             </li>
             <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-                <a class="page-link" href="?page={{ page + 1 }}&per_page={{ per_page }}">Next   <i class="bi bi-arrow-right-circle"></i> </a>
+                <a class="page-link" href="?page={{ page + 1 }}&per_page={{ per_page }}">Previous   <i class="bi bi-arrow-right-circle"></i> </a>
             </li>
             <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
                 <a class="page-link" href="?page={{ total_pages }}&per_page={{ per_page }}">Oldest</a>
