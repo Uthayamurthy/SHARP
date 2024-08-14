@@ -101,7 +101,6 @@ def handle_mqtt_message(client, userdata, message):
 
 @socketio.on('connect')
 def on_connect ():
-    print('SHARP : New Socket client connected.')
     socketio.send('Socket server ready.')
     socketio.emit('devices_info', data=devices_info)
 
