@@ -142,6 +142,12 @@ class AUTO_AGENT:
                     self.init_automators()
                     self.subscribe()
                     print(f"SHARP AUTO AGENT : Reloaded Automations !")
+                if msg == 'STOP':
+                    print(f"SHARP AUTO AGENT : Stopping Automation Agent Gracefully !")
+                    self.client.loop_stop()
+                    self.client.disconnect()
+                    print("SHARP AUTO AGENT : Exiting")
+                    exit(0)
             
                     
     def start_agent(self):

@@ -8,6 +8,7 @@ from __version__ import version
 from  logs_loader import load_logs
 import multiprocessing 
 import json
+import signal
 
 print('SHARP: Starting up...')
 
@@ -40,6 +41,7 @@ app.config['TEMPLATES_AUTO_RELOAD'] = flask_conf['TEMPLATES_AUTO_RELOAD']
 mqtt = Mqtt(app)
 socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*")
 agent_conn = None # The pipe to communicate with auto agent process 
+automation_process = None
 
 def format_time_12hr(time_str):
     try:
@@ -71,6 +73,7 @@ def setup():
 
 def start_auto_agent():
     global agent_conn
+    global automation_process
     parent_conn, child_conn = multiprocessing.Pipe()
     agent_conn = parent_conn
     my_agent = AUTO_AGENT(child_conn)
@@ -250,6 +253,17 @@ with app.app_context():
         setup()
         start_auto_agent()
         
+def handle_sigterm(*args):
+    print("SHARP: SIGTERM received, attempting to shut down gracefully...")
+    mqtt.client.loop_stop()
+    mqtt.client.disconnect()
+    agent_conn.send('STOP')
+    socketio.stop()
+    print("SHARP: Exiting ...")
+    exit(0)
+
+signal.signal(signal.SIGTERM, handle_sigterm)
+
 if __name__ == '__main__':
     # run app in debug mode on port 5000
 
