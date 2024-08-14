@@ -240,6 +240,12 @@ def logs():
     
     return render_template('logs.html', items=paginated_items, page=page, per_page=per_page, total_pages=total_pages)
 
+@app.route('/refresh-logs')
+def refresh_logs():
+    global log_items
+    log_items = load_logs()
+    return redirect('/logs')
+
 with app.app_context():
         setup()
         start_auto_agent()
