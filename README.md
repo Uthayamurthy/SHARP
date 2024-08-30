@@ -1,5 +1,7 @@
-# SHARP 
+# # SHARP 
 ## Smart Home Automation Research Project
+
+![Screenshot of SHARP](images/demo.png)
 
 ### Description:
 SHARP is a Flask Application to control and automate smart home devices. 
