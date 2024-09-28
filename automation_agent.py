@@ -93,7 +93,7 @@ class AUTO_AGENT:
         with open('config/mqtt_conf.json', 'r') as f:
             mqtt_conf = json.load(f)
 
-        self.client = mqtt.Client(mqtt_conf['MQTT_AUTO_AGENT_CLIENT_ID'])
+        self.client = mqtt.Client(mqtt_conf['MQTT_AUTO_AGENT_CLIENT_ID'], True)
         self.client.username_pw_set(mqtt_conf["MQTT_USERNAME"], password=mqtt_conf["MQTT_PASSWORD"])
         self.client.on_connect= self.on_connect
         self.client.connect(mqtt_conf['MQTT_HOST'], port=mqtt_conf['MQTT_PORT'])
