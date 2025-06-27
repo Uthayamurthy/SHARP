@@ -46,13 +46,16 @@ Contact Author : uthayamurthy2006@gmail.com
                     </div>
                 </div>
 
-                <div class="container-fluid text-center">
+      
+            <div class="container-fluid text-center">
                 <h3 class="h4 m-3"><i class="bi bi-lightning-charge-fill"></i> Actionables </h3>
                 {% for name, info in actionable.items() %}
-                    <span class="m-3"> <i class="bi bi-{{ info['icon'] }}"></i> {{ name | dashless }}</span>
+                    {% if info is mapping and 'icon' in info %}
+                        <span class="m-3"> <i class="bi bi-{{ info['icon'] }}"></i> {{ name | dashless }}</span>
+                    {% endif %}
                 {%  endfor %}
-                </div>
             </div>
+        </div>
         {% endfor %}
     {% endfor %}
 </div>
