@@ -15,30 +15,31 @@
         <a href="{{ url_for('main.create_user') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Create New User</a>
     </div>
 
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for user in users %}
-            <tr>
-                <td>{{ user.id }}</td>
-                <td>{{ user.username }}</td>
-                <td>{{ user.email }}</td>
-                <td><span class="badge text-bg-{% if user.role == 'Admin' %}danger{% else %}secondary{% endif %}">{{ user.role }}</span></td>
-                <td>
-                    <!-- Future actions like edit/delete can be added here -->
-                    <button class="btn btn-sm btn-outline-primary" disabled>Edit</button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td><span class="badge text-bg-{% if user.role == 'Admin' %}danger{% else %}secondary{% endif %}">{{ user.role }}</span></td>
+                    <td>
+                        <!-- Future actions like edit/delete can be added here -->
+                        <button class="btn btn-sm btn-outline-primary" disabled>Edit</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}

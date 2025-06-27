@@ -47,48 +47,75 @@ Contact Author : uthayamurthy2006@gmail.com
         {% set active_page = active_page|default('index') -%}
         
         <!-- navbar-->
-        <nav class="navbar navbar-expand-md  border-body">
+        <nav class="navbar navbar-expand-md border-body">
             <div class="container-fluid">
-            <a class="navbar-brand" style="font-size: 32px;" href="{{ url_for('main.home') }}"> <i class="bi bi-hash"></i> SHARP</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mynavbar" aria-controls="mynavbar" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="mynavbar">
-                {% if current_user.is_authenticated %}
-                <div class="navbar-nav nav-underline me-auto">
-                    {% set navigation_bar = [
-                        (url_for('main.home'), 'home', 'Home'),
-                        (url_for('main.devices'), 'devices', 'Devices'),
-                        (url_for('main.automations'), 'automations', 'Automations'),
-                        (url_for('main.logs'), 'logs', 'Logs'),
-                        (url_for('main.about'), 'about', 'About')
-                    ] -%}
-                    {% for href, id, caption in navigation_bar -%}
-                        <a class="nav-link {% if id == active_page %}active{% endif %}" href="{{ href|e }}">{{ caption }}</a>
-                    {% endfor -%}
-                    {% if current_user.role == 'Admin' %}
-                        <a class="nav-link {% if 'admin' == active_page %}active{% endif %}" href="{{ url_for('main.admin_dashboard') }}"><i class="bi bi-shield-lock"></i> Admin</a>
-                    {% endif %}
-                </div>
-                <div class="navbar-nav ms-auto">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <!-- Brand, always on the left -->
+                <a class="navbar-brand" style="font-size: 32px;" href="{{ url_for('main.home') }}"> <i class="bi bi-hash"></i> SHARP</a>
+        
+                <!-- Wrapper for right-side icons, visible on all screen sizes -->
+                <div class="d-flex align-items-center">
+                    {% if current_user.is_authenticated %}
+                    <!-- Mobile-only User Dropdown. Note the simplified classes. -->
+                    <div class="dropdown d-md-none px-3">
+                        <a class="nav-link" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_image) }}" class="rounded-circle" width="30" height="30">
-                            {{ current_user.username }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ url_for('main.profile') }}"><i class="bi bi-person-fill"></i> Profile</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                            <li class="dropdown-item-text"><i class="bi bi-person-circle"></i> {{ current_user.username }}</li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('main.profile') }}"><i class="bi bi-person-fill"></i> Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
                         </ul>
-                    </li>
+                    </div>
+                    {% endif %}
+
+                    <!-- Hamburger Toggler Button -->
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mynavbar" aria-controls="mynavbar" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
                 </div>
-                {% else %}
-                <div class="navbar-nav nav-underline ms-auto">
-                    <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+        
+                <!-- Collapsible Navbar Content -->
+                <div class="collapse navbar-collapse" id="mynavbar">
+                    {% if current_user.is_authenticated %}
+                    <!-- Main Navigation Links -->
+                    <div class="navbar-nav nav-underline me-auto">
+                        {% set navigation_bar = [
+                            (url_for('main.home'), 'home', 'Home'),
+                            (url_for('main.devices'), 'devices', 'Devices'),
+                            (url_for('main.automations'), 'automations', 'Automations'),
+                            (url_for('main.logs'), 'logs', 'Logs'),
+                            (url_for('main.about'), 'about', 'About')
+                        ] -%}
+                        {% for href, id, caption in navigation_bar -%}
+                            <a class="nav-link {% if id == active_page %}active{% endif %}" href="{{ href|e }}">{{ caption }}</a>
+                        {% endfor -%}
+                        {% if current_user.role == 'Admin' %}
+                            <a class="nav-link {% if 'admin' == active_page %}active{% endif %}" href="{{ url_for('main.admin_dashboard') }}"><i class="bi bi-shield-lock"></i> Admin</a>
+                        {% endif %}
+                    </div>
+                    <!-- Desktop-only User Dropdown -->
+                    <div class="navbar-nav ms-auto d-none d-md-block">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_image) }}" class="rounded-circle" width="30" height="30">
+                                {{ current_user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ url_for('main.profile') }}"><i class="bi bi-person-fill"></i> Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                            </ul>
+                        </li>
+                    </div>
+                    {% else %}
+                    <!-- Login link when not authenticated -->
+                    <div class="navbar-nav nav-underline ms-auto">
+                        <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
-            </div>
             </div>
         </nav>
         <!-- navbar ends-->
