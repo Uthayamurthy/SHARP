@@ -105,9 +105,11 @@ def start_auto_agent():
     automation_process.start()
 
 health_topic_map = {}
+ack_topic_map = {}
 
 def mqtt_setup():
-    global health_topic_map
+    """ Creates lookup maps and subscribes to all necessary MQTT topics. """
+    global health_topic_map, ack_topic_map
     for location, devices in devices_info_data.items():
         for device_name, device_info in devices.items():
             # Subscribe to health topic if it exists
@@ -122,11 +124,18 @@ def mqtt_setup():
                 }
                 print(f"SHARP: Subscribed to health topic for {device_name}: {health_topic}")
 
+            # Find all actionables and subscribe to their ack_topics
             for actionable_name, info in device_info.items():
                 if isinstance(info, dict) and 'ack_topic' in info:
                     topic = info['ack_topic']
                     try:
                         mqtt.subscribe(topic=topic)
+                        ack_topic_map[topic] = {
+                            'location': location,
+                            'device_name': device_name,
+                            'actionable_name': actionable_name,
+                            'actionable_info': info
+                        }
                     except Exception as e:
                         print(f'SHARP: Failed to subscribe to topic {topic}: {e}')
 
@@ -135,6 +144,7 @@ def handle_mqtt_message(client, userdata, message):
     topic = message.topic
     payload_str = message.payload.decode()
 
+    # --- Health Message Handling ---
     if topic in health_topic_map:
         device_context = health_topic_map[topic]
         device_info = device_context['info']
@@ -168,23 +178,26 @@ def handle_mqtt_message(client, userdata, message):
             print(f"SHARP: Could not parse health message from {topic}: {e}")
         return
 
-    state = payload_str
-    obj_id = ''
-    for location, devices in devices_info_data.items():
-        for device_name, device_info in devices.items():
-            for actionable_name, info in device_info.items():
-                if isinstance(info, dict) and info.get('ack_topic') == topic:
-                    device_info['location'] = location
-                    device_info['device_name'] = device_name
+    # --- Acknowledgment (State Change) Message Handling ---
+    if topic in ack_topic_map:
+        context = ack_topic_map[topic]
+        state = payload_str
 
-                    obj_id = f'{location}-{device_name}-{actionable_name}'
-                    print(f'SHARP: Received message from {obj_id}, New state is "{state}" ')
-                    info['state'] = state
-                    
-                    with app.app_context():
-                        log_event(f"Device ({device_name})", f"'{actionable_name}' state changed to '{state}'")
+        # Update the state in the original devices_info_data dictionary
+        context['actionable_info']['state'] = state
+        
+        # Prepare data for the frontend
+        obj_id = f"{context['location']}-{context['device_name']}-{context['actionable_name']}"
+        
+        print(f'SHARP: Received message from {obj_id}, New state is "{state}"')
+        
+        # Log the event
+        with app.app_context():
+            log_event(f"Device ({context['device_name']})", f"'{context['actionable_name']}' state changed to '{state}'")
 
-                    socketio.emit('update_state', data={'obj_id': obj_id, 'state': state})
+        # Emit the update to the frontend
+        socketio.emit('update_state', data={'obj_id': obj_id, 'state': state})
+        return
 
 @socketio.on('connect')
 def on_connect():
