@@ -39,7 +39,7 @@ class Log(Base):
 
 try:
     # Use the same relative path as the main app
-    engine = create_engine('sqlite:///../instance/sharp.db')
+    engine = create_engine('sqlite:///instance/sharp.db')
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     print("SHARP AUTO AGENT: Database connection for logging established.")
 except Exception as e:

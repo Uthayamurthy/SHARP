@@ -95,8 +95,17 @@ Contact Author : uthayamurthy2006@gmail.com
                         <td>{{ pagination.first + loop.index0 }}</td>
                         <td>{{ (item.timestamp | to_ist).strftime('%d/%m/%Y') }}</td>
                         <td>{{ (item.timestamp | to_ist).strftime('%I:%M:%S %p') }}</td>
-                        <td>{{ item.entity }}</td>
-                        <td>{{ item.event }}</td>
+                        <td>
+                            {% if item.entity.startswith('SHARP-') %}
+                                <i class="bi bi-stars text-dark"></i>
+                            {% elif item.entity == 'SHARP' %}
+                                <i class="bi bi-hash text-dark"></i>
+                            {% elif item.entity.startswith('Device') %}
+                                <i class="bi bi-gear-fill text-dark"></i>
+                            {% endif %}
+                            {{ item.entity }}
+                        </td>
+                        <td>{{ item.event | colorize_log }}</td>
                     </tr>
                 {% else %}
                     <tr>

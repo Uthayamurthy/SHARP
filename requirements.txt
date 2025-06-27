@@ -9,3 +9,4 @@ email_validator
 Pillow
 flask-bcrypt
 requests
+markupsafe

@@ -12,6 +12,7 @@ from PIL import Image
 import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from markupsafe import Markup
 
 main_bp = Blueprint('main', __name__)
 
@@ -23,6 +24,33 @@ def to_ist(utc_dt):
     if utc_dt.tzinfo is None:
         utc_dt = utc_dt.replace(tzinfo=ZoneInfo("UTC"))
     return utc_dt.astimezone(IST)
+
+def colorize_log(event_text):
+    """A Jinja filter to colorize keywords in a log event string."""
+    
+    # Color the actionable name first if it exists
+    if "state changed to" in event_text:
+        match = re.match(r"('[\w\s-]+')", event_text)
+        if match:
+            actionable_part = match.group(1)
+            colored_actionable = f'<span class="text-primary fw-bold">{actionable_part}</span>'
+            event_text = event_text.replace(actionable_part, colored_actionable, 1)
+
+    # Color general keywords
+    replacements = {
+        'on': '<span class="text-success fw-bold">on</span>',
+        'off': '<span class="text-danger fw-bold">off</span>',
+        'online': '<span class="text-success fw-bold">online</span>',
+        'offline': '<span class="text-danger fw-bold">offline</span>',
+        'started': '<span class="text-success fw-bold">started</span>',
+        'ON': '<span class="text-success fw-bold">ON</span>',
+        'OFF': '<span class="text-danger fw-bold">OFF</span>',
+    }
+    # Use word boundaries to avoid replacing parts of words
+    for word, replacement in replacements.items():
+        event_text = re.sub(r'\b' + re.escape(word) + r'\b', replacement, event_text)
+
+    return Markup(event_text)
 
 def format_time_12hr(time_str):
     try:
@@ -230,7 +258,6 @@ def logs():
 
     if filter_date_str:
         try:
-            # CHANGE: Parse DD-MM-YYYY format
             filter_date_obj = datetime.strptime(filter_date_str, '%d-%m-%Y').date()
             start_dt_local = datetime.combine(filter_date_obj, datetime.min.time()).replace(tzinfo=IST)
             end_dt_local = datetime.combine(filter_date_obj, datetime.max.time()).replace(tzinfo=IST)
@@ -265,7 +292,6 @@ def clear_logs():
         return redirect(url_for('main.logs'))
 
     try:
-        # CHANGE: Parse DD-MM-YYYY format for date
         local_dt_naive = datetime.strptime(f"{clear_date_str} {clear_time_str}", '%d-%m-%Y %H:%M')
         local_dt_aware = local_dt_naive.replace(tzinfo=IST)
         

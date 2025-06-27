@@ -25,7 +25,7 @@ from flask_mqtt import Mqtt
 from time import sleep
 from __version__ import version
 from auth import auth_bp
-from routes import main_bp, format_time_12hr, dashless, to_ist
+from routes import main_bp, format_time_12hr, dashless, to_ist, colorize_log # <-- IMPORT NEW FILTER
 from extensions import db, bcrypt, login_manager
 from models import User, Log
 from automation_agent import AUTO_AGENT
@@ -56,7 +56,7 @@ for location, devices in devices_info_data.items():
 
 app.config['SECRET_KEY'] = flask_conf['SECRET_KEY']
 app.config['TEMPLATES_AUTO_RELOAD'] = flask_conf['TEMPLATES_AUTO_RELOAD']
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///../instance/sharp.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sharp.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config['MQTT_BROKER_URL'] = mqtt_conf['MQTT_HOST']
@@ -87,6 +87,7 @@ app.register_blueprint(main_bp)
 app.jinja_env.filters['format_time'] = format_time_12hr
 app.jinja_env.filters['dashless'] = dashless
 app.jinja_env.filters['to_ist'] = to_ist
+app.jinja_env.filters['colorize_log'] = colorize_log
 
 
 @login_manager.user_loader
@@ -112,15 +113,11 @@ def mqtt_setup():
     global health_topic_map, ack_topic_map
     for location, devices in devices_info_data.items():
         for device_name, device_info in devices.items():
-            # Subscribe to health topic if it exists
             if 'health_topic' in device_info:
                 health_topic = device_info['health_topic']
                 mqtt.subscribe(topic=health_topic)
-
                 health_topic_map[health_topic] = {
-                    'location': location,
-                    'device_name': device_name,
-                    'info': device_info
+                    'location': location, 'device_name': device_name, 'info': device_info
                 }
                 print(f"SHARP: Subscribed to health topic for {device_name}: {health_topic}")
 
@@ -130,10 +127,8 @@ def mqtt_setup():
                     try:
                         mqtt.subscribe(topic=topic)
                         ack_topic_map[topic] = {
-                            'location': location,
-                            'device_name': device_name,
-                            'actionable_name': actionable_name,
-                            'actionable_info': info # Direct reference to the actionable's dict
+                            'location': location, 'device_name': device_name,
+                            'actionable_name': actionable_name, 'actionable_info': info
                         }
                     except Exception as e:
                         print(f'SHARP: Failed to subscribe to topic {topic}: {e}')
@@ -143,7 +138,6 @@ def handle_mqtt_message(client, userdata, message):
     topic = message.topic
     payload_str = message.payload.decode()
 
-    # --- Health Message Handling ---
     if topic in health_topic_map:
         device_context = health_topic_map[topic]
         device_info = device_context['info']
@@ -154,7 +148,6 @@ def handle_mqtt_message(client, userdata, message):
 
             if health_data.get('status') == 'online':
                 prev_status = device_info.get('online_status', 'waiting')
-                
                 device_info['online_status'] = 'online'
                 device_info['last_seen'] = current_time 
                 device_info['health_data'] = health_data
@@ -166,37 +159,25 @@ def handle_mqtt_message(client, userdata, message):
                         log_event(f"Device ({device_context['device_name']}@{device_context['location']})", "Came online")
 
                 socketio.emit('update_health', data={
-                    'location': device_context['location'],
-                    'device': device_context['device_name'], 
-                    'status': 'online',
-                    'last_seen': current_time,
-                    'health_data': health_data
+                    'location': device_context['location'], 'device': device_context['device_name'], 
+                    'status': 'online', 'last_seen': current_time, 'health_data': health_data
                 })
 
         except (json.JSONDecodeError, KeyError) as e:
             print(f"SHARP: Could not parse health message from {topic}: {e}")
         return
 
-    # --- Acknowledgment (State Change) Message Handling ---
     if topic in ack_topic_map:
         context = ack_topic_map[topic]
         state = payload_str
-
-        # Update the state in the original devices_info_data dictionary
         context['actionable_info']['state'] = state
-        
-        # Prepare data for the frontend
         obj_id = f"{context['location']}-{context['device_name']}-{context['actionable_name']}"
-        
         print(f'SHARP: Received message from {obj_id}, New state is "{state}"')
         
-        # Log the event
         with app.app_context():
             entity_name = f"Device ({context['device_name']}@{context['location']})"
             event_details = f"'{context['actionable_name']}' state changed to '{state}'"
             log_event(entity_name, event_details)
-
-        # Emit the update to the frontend
         socketio.emit('update_state', data={'obj_id': obj_id, 'state': state})
         return
 
@@ -243,7 +224,6 @@ def check_device_liveness():
                         continue
 
                     current_status = device_info.get('online_status')
-
                     if current_status == 'waiting':
                         initial_wait_time = device_info['health_interval_sec'] * 1.5 
                         start_time = device_info.get('start_time', 0)
@@ -254,9 +234,7 @@ def check_device_liveness():
                                 device_info['online_status'] = 'offline'
                                 log_event(f"Device ({device_name}@{location})", "Went offline")
                                 socketio.emit('update_health', data={
-                                    'location': location,
-                                    'device': device_name,
-                                    'status': 'offline'
+                                    'location': location, 'device': device_name, 'status': 'offline'
                                 })
 
                     elif current_status == 'online':
@@ -269,14 +247,10 @@ def check_device_liveness():
                                 device_info['online_status'] = 'offline'
                                 log_event(f"Device ({device_name}@{location})", "Went offline")
                                 socketio.emit('update_health', data={
-                                    'location': location,
-                                    'device': device_name,
-                                    'status': 'offline'
+                                    'location': location, 'device': device_name, 'status': 'offline'
                                 })
-            
             time.sleep(10)
 
-# Start the liveness checker in a daemon thread so it exits with the app
 liveness_thread = threading.Thread(target=check_device_liveness)
 liveness_thread.daemon = True
 

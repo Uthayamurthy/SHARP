@@ -442,6 +442,7 @@ dependencies = [
     { name = "flask-sqlalchemy" },
     { name = "flask-wtf" },
     { name = "gunicorn" },
+    { name = "markupsafe" },
     { name = "pillow" },
     { name = "requests" },
 ]
@@ -457,6 +458,7 @@ requires-dist = [
     { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
     { name = "flask-wtf", specifier = ">=1.2.2" },
     { name = "gunicorn", specifier = ">=23.0.0" },
+    { name = "markupsafe", specifier = ">=3.0.2" },
     { name = "pillow", specifier = ">=11.2.1" },
     { name = "requests", specifier = ">=2.32.4" },
 ]
