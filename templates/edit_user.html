@@ -38,19 +38,21 @@
                 <div class="card-body">
                     <form method="POST" action="">
                         {{ password_form.hidden_tag() }}
-                        <div class="mb-3">
+                                                <div class="mb-3">
                             {{ password_form.password.label(class="form-label") }}
                             <div class="input-group">
-                                {{ password_form.password(class="form-control") }}
+                                {{ password_form.password(class="form-control", id="new-password-input") }}
                                 <button class="btn btn-outline-secondary toggle-password-vis" type="button"><i class="bi bi-eye-fill"></i></button>
                             </div>
                         </div>
                         <div class="mb-3">
                             {{ password_form.confirm_password.label(class="form-label") }}
                             <div class="input-group">
-                                {{ password_form.confirm_password(class="form-control") }}
+                                {{ password_form.confirm_password(class="form-control", id="confirm-password-input") }}
                                 <button class="btn btn-outline-secondary toggle-password-vis" type="button"><i class="bi bi-eye-fill"></i></button>
                             </div>
+                            <div id="password-match-feedback" class="invalid-feedback d-block"></div>
+                        </div>
                         </div>
                         <button type="submit" name="submit_password" class="btn btn-warning">Set New Password</button>
                     </form>

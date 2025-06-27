@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, flash, url_for, current_app
+from flask import Blueprint, render_template, request, redirect, flash, url_for, current_app, jsonify
 from flask_login import login_required, current_user
 from extensions import db, bcrypt
 from models import User
@@ -9,6 +9,7 @@ import json
 import secrets
 import os
 from PIL import Image
+import re
 
 main_bp = Blueprint('main', __name__)
 
@@ -36,6 +37,51 @@ def save_picture(form_picture):
     i.save(picture_path)
     return picture_fn
 
+def check_password_strength(password):
+    """Returns a strength score (0-4) and a message."""
+    score = 0
+    feedback = []
+
+    if len(password) >= 8:
+        score += 1
+    else:
+        feedback.append("at least 8 characters")
+    
+    if re.search(r"[a-z]", password):
+        score += 1
+    else:
+        feedback.append("a lowercase letter")
+
+    if re.search(r"[A-Z]", password):
+        score += 1
+    else:
+        feedback.append("an uppercase letter")
+
+    if re.search(r"[0-9]", password):
+        score += 1
+    else:
+        feedback.append("a number")
+    
+    if re.search(r"[\W_]", password): # Non-alphanumeric characters
+        score += 1
+    else:
+        feedback.append("a symbol")
+
+    # Determine message based on score
+    if score <= 2:
+        strength = "Weak"
+        message = "Requires " + ", ".join(feedback) + "." if feedback else ""
+    elif score == 3:
+        strength = "Medium"
+        message = "Good, but could be stronger."
+    elif score == 4:
+        strength = "Strong"
+        message = "Strong password."
+    else: # score == 5
+        strength = "Very Strong"
+        message = "Excellent password!"
+
+    return {'score': score, 'strength': strength, 'message': message}
 
 # --- Main Application Routes ---
 @main_bp.route('/')
@@ -194,15 +240,21 @@ def profile():
 def change_password():
     form = ChangePasswordForm()
     if form.validate_on_submit():
+        # Check password strength again on the server side as a final validation
+        strength = check_password_strength(form.password.data)
+        if strength['score'] < 3:
+            flash(f"Password is too weak. Please choose a stronger one.", 'danger')
+            return redirect(url_for('main.profile'))
+
         hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
         current_user.password_hash = hashed_password
         db.session.commit()
-        flash('Your password has been changed!', 'success')
+        flash('Your password has been changed successfully!', 'success')
     else:
-        # This part handles validation errors
         for field, errors in form.errors.items():
             for error in errors:
-                flash(f"Error in {getattr(form, field).label.text}: {error}", 'danger')
+                label = getattr(form, field).label.text
+                flash(f"Error in {label}: {error}", 'danger')
 
     return redirect(url_for('main.profile'))
 
@@ -287,3 +339,13 @@ def edit_user(user_id):
     return render_template('edit_user.html', title='Edit User', user=user,
                            details_form=details_form, password_form=password_form,
                            role_form=role_form, delete_form=delete_form)
+
+@main_bp.route('/check-password-strength', methods=['POST'])
+@login_required
+def password_strength():
+    password = request.json.get('password')
+    if not password:
+        return jsonify({'score': 0, 'strength': 'Very Weak', 'message': 'Password cannot be empty.'})
+    
+    strength_data = check_password_strength(password)
+    return jsonify(strength_data)

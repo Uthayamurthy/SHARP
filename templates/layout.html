@@ -140,6 +140,50 @@ Contact Author : uthayamurthy2006@gmail.com
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     
         <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.getElementById('new-password-input');
+            const strengthBar = document.getElementById('password-strength-bar');
+            const strengthText = document.getElementById('password-strength-text');
+
+            if (passwordInput) { // Only run if the password input exists on the page
+                passwordInput.addEventListener('input', function() {
+                    const password = this.value;
+                    
+                    fetch('{{ url_for("main.password_strength") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            // Add CSRF token if you use Flask-SeaSurf or similar
+                        },
+                        body: JSON.stringify({ 'password': password })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        const score = data.score || 0;
+                        const strength = data.strength || 'Very Weak';
+                        let barClass = '';
+
+                        // Update bar color based on strength
+                        if (score <= 2) {
+                            barClass = 'bg-danger';
+                        } else if (score == 3) {
+                            barClass = 'bg-warning';
+                        } else if (score == 4) {
+                            barClass = 'bg-info';
+                        } else {
+                            barClass = 'bg-success';
+                        }
+                        
+                        strengthBar.className = 'progress-bar ' + barClass;
+                        strengthBar.style.width = (score * 20) + '%';
+                        strengthText.textContent = data.message || '';
+                    });
+                });
+            }
+        });
+        </script>
+        
+        <script>
             document.addEventListener('DOMContentLoaded', function() {
                 const togglePasswordButtons = document.querySelectorAll('.toggle-password-vis');
 
@@ -163,6 +207,41 @@ Contact Author : uthayamurthy2006@gmail.com
                     });
                 });
             });
+        </script>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const newPasswordInput = document.getElementById('new-password-input');
+            const confirmPasswordInput = document.getElementById('confirm-password-input');
+            const feedbackElement = document.getElementById('password-match-feedback');
+
+            // Only run if all three elements exist on the page
+            if (newPasswordInput && confirmPasswordInput && feedbackElement) {
+                const checkPasswords = function() {
+                    const pass1 = newPasswordInput.value;
+                    const pass2 = confirmPasswordInput.value;
+
+                    if (pass2.length === 0) {
+                        feedbackElement.textContent = '';
+                        confirmPasswordInput.classList.remove('is-invalid', 'is-valid');
+                        return;
+                    }
+
+                    if (pass1 === pass2) {
+                        feedbackElement.textContent = ''; // Clear error message
+                        confirmPasswordInput.classList.remove('is-invalid');
+                        confirmPasswordInput.classList.add('is-valid');
+                    } else {
+                        feedbackElement.textContent = 'Passwords do not match.';
+                        confirmPasswordInput.classList.remove('is-valid');
+                        confirmPasswordInput.classList.add('is-invalid');
+                    }
+                };
+
+                // Add event listeners to both fields
+                newPasswordInput.addEventListener('input', checkPasswords);
+                confirmPasswordInput.addEventListener('input', checkPasswords);
+            }
+        });
         </script>
     <footer class="footer bg-body-secondary-subtle text-center mt-auto py-3">
         <div class="container">

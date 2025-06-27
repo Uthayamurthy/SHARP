@@ -30,9 +30,18 @@ class UpdateProfileForm(FlaskForm):
                 raise ValidationError('That email is taken. Please choose a different one.')
 
 class ChangePasswordForm(FlaskForm):
-    password = PasswordField('New Password', validators=[DataRequired(), Length(min=6)])
-    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    current_password = PasswordField('Current Password', validators=[DataRequired()])
+    password = PasswordField('New Password', validators=[DataRequired(), Length(min=8, message="Password must be at least 8 characters long.")])
+    confirm_password = PasswordField('Confirm New Password', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Change Password')
+
+    def validate_current_password(self, current_password):
+        if not bcrypt.check_password_hash(current_user.password_hash, current_password.data):
+            raise ValidationError('Incorrect current password.')
+    
+    def validate_password(self, password):
+        if bcrypt.check_password_hash(current_user.password_hash, password.data):
+            raise ValidationError('New password cannot be the same as the current password.')
 
 class CreateUserForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=2, max=20)])

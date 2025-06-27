@@ -30,21 +30,21 @@
                         <div class="mb-3">
                             {{ form.password.label(class="form-label") }}
                             <div class="input-group">
-                                {{ form.password(class="form-control") }}
-                                <button class="btn btn-outline-secondary toggle-password-vis" type="button">
-                                    <i class="bi bi-eye-fill"></i>
-                                </button>
+                                <!-- ADD id here -->
+                                {{ form.password(class="form-control", id="new-password-input") }}
+                                <button class="btn btn-outline-secondary toggle-password-vis" type="button"><i class="bi bi-eye-fill"></i></button>
                             </div>
                         </div>
                         <!-- Confirm Password -->
                         <div class="mb-3">
                             {{ form.confirm_password.label(class="form-label") }}
                             <div class="input-group">
-                                {{ form.confirm_password(class="form-control") }}
-                                <button class="btn btn-outline-secondary toggle-password-vis" type="button">
-                                    <i class="bi bi-eye-fill"></i>
-                                </button>
+                                <!-- ADD id here -->
+                                {{ form.confirm_password(class="form-control", id="confirm-password-input") }}
+                                <button class="btn btn-outline-secondary toggle-password-vis" type="button"><i class="bi bi-eye-fill"></i></button>
                             </div>
+                            <!-- ADD feedback div -->
+                            <div id="password-match-feedback" class="invalid-feedback d-block"></div>
                         </div>
                         <!-- Role -->
                         <div class="mb-3">
