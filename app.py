@@ -32,6 +32,7 @@ from automation_agent import AUTO_AGENT
 import multiprocessing
 import json
 import signal
+import os
 
 print('SHARP: Starting up...')
 
@@ -150,19 +151,30 @@ signal.signal(signal.SIGTERM, handle_sigterm)
 
 with app.app_context():
     db.create_all()
-    if not User.query.filter_by(email=flask_conf['DEFAULT_ADMIN_EMAIL']).first():
-        print("SHARP: Creating default admin user...")
-        hashed_password = bcrypt.generate_password_hash(flask_conf['DEFAULT_ADMIN_PASSWORD']).decode('utf-8')
-        admin_user = User(
-            username=flask_conf['DEFAULT_ADMIN_USERNAME'],
-            email=flask_conf['DEFAULT_ADMIN_EMAIL'],
-            password_hash=hashed_password,
-            role='Admin'
-        )
-        db.session.add(admin_user)
-        db.session.commit()
-        print(f"SHARP: Default admin '{flask_conf['DEFAULT_ADMIN_USERNAME']}' created.")
+
+    setup_flag_path = os.path.join(app.instance_path, 'setup.flag')
     
+    if not os.path.exists(setup_flag_path):
+        print("SHARP: First-time setup detected. Creating default admin user...")
+
+        if not User.query.filter_by(email=flask_conf['DEFAULT_ADMIN_EMAIL']).first():
+            hashed_password = bcrypt.generate_password_hash(flask_conf['DEFAULT_ADMIN_PASSWORD']).decode('utf-8')
+            admin_user = User(
+                username=flask_conf['DEFAULT_ADMIN_USERNAME'],
+                email=flask_conf['DEFAULT_ADMIN_EMAIL'],
+                password_hash=hashed_password,
+                role='Admin'
+            )
+            db.session.add(admin_user)
+            db.session.commit()
+            print(f"SHARP: Default admin '{flask_conf['DEFAULT_ADMIN_USERNAME']}' created.")
+
+            with open(setup_flag_path, 'w') as f:
+                pass
+            print("SHARP: Setup flag created. Default user will not be recreated on subsequent starts.")
+        else:
+             print("SHARP: Default admin email already exists in the database. Skipping creation.")
+
     mqtt_setup()
     start_auto_agent()
 
