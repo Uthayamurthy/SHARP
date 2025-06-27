@@ -1,4 +1,3 @@
-# SHARP-2.0/templates/logs.html
 <!--
 S.H.A.R.P - Smart Home Automation Research Project
 
@@ -33,6 +32,15 @@ Contact Author : uthayamurthy2006@gmail.com
 
 {% block body %}
 <div class="container-fluid">
+    
+    <div class="d-flex justify-content-end mb-3">
+        {% if current_user.role == 'Admin' %}
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#clearLogsModal">
+            <i class="bi bi-trash-fill"></i> Clear Logs
+        </button>
+        {% endif %}
+    </div>
+
     <!-- Filter and Controls Form -->
     <div class="card my-4">
         <div class="card-header">
@@ -43,11 +51,16 @@ Contact Author : uthayamurthy2006@gmail.com
                 <div class="row g-3 align-items-end">
                     <div class="col-md">
                         <label for="filter_date" class="form-label">Date</label>
-                        <input type="date" name="filter_date" id="filter_date" value="{{ filter_date }}" class="form-control">
+                        <input type="text" name="filter_date" id="filter_date" value="{{ filter_date }}" class="form-control" placeholder="DD-MM-YYYY">
                     </div>
                     <div class="col-md">
                         <label for="filter_entity" class="form-label">Entity</label>
-                        <input type="text" name="filter_entity" id="filter_entity" value="{{ filter_entity }}" placeholder="e.g., SHARP or Device" class="form-control">
+                        <select name="filter_entity" id="filter_entity" class="form-select">
+                            <option value="">All Entities</option>
+                            {% for entity in distinct_entities %}
+                                <option value="{{ entity }}" {% if entity == filter_entity %}selected{% endif %}>{{ entity }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <div class="col-md-2">
                         <label for="per_page" class="form-label">Per Page</label>
@@ -113,19 +126,6 @@ Contact Author : uthayamurthy2006@gmail.com
     </nav>
     {% endif %}
 
-    <!-- Danger Zone for Clearing Logs -->
-    {% if current_user.role == 'Admin' %}
-    <div class="card border-danger my-5">
-        <div class="card-header bg-danger text-white">Danger Zone</div>
-        <div class="card-body">
-            <h5 class="card-title text-danger">Clear Log Entries</h5>
-            <p>This will permanently delete all log entries up to and including the specified date and time. This action cannot be undone.</p>
-            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#clearLogsModal">
-                <i class="bi bi-trash-fill"></i> Clear Logs...
-            </button>
-        </div>
-    </div>
-
     <!-- Clear Logs Modal -->
     <div class="modal fade" id="clearLogsModal" tabindex="-1" aria-labelledby="clearLogsModalLabel" aria-hidden="true">
         <div class="modal-dialog">
@@ -139,7 +139,7 @@ Contact Author : uthayamurthy2006@gmail.com
                         <p>Please select the date and time. All logs created <strong>on or before</strong> this moment will be deleted.</p>
                         <div class="mb-3">
                             <label for="clear_date" class="form-label">Date</label>
-                            <input type="date" id="clear_date" name="clear_date" class="form-control" required>
+                            <input type="text" id="clear_date" name="clear_date" class="form-control" placeholder="DD-MM-YYYY" required>
                         </div>
                         <div class="mb-3">
                             <label for="clear_time" class="form-label">Time (IST)</label>
@@ -154,7 +154,6 @@ Contact Author : uthayamurthy2006@gmail.com
             </div>
         </div>
     </div>
-    {% endif %}
 
 </div>
 {% endblock %}

@@ -225,28 +225,32 @@ def logs():
     filter_entity = request.args.get('filter_entity', '').strip()
 
     query = Log.query
+    
+    distinct_entities = [item[0] for item in db.session.query(Log.entity).distinct().order_by(Log.entity).all()]
 
     if filter_date_str:
         try:
-            filter_date_obj = datetime.strptime(filter_date_str, '%Y-%m-%d').date()
+            # CHANGE: Parse DD-MM-YYYY format
+            filter_date_obj = datetime.strptime(filter_date_str, '%d-%m-%Y').date()
             start_dt_local = datetime.combine(filter_date_obj, datetime.min.time()).replace(tzinfo=IST)
             end_dt_local = datetime.combine(filter_date_obj, datetime.max.time()).replace(tzinfo=IST)
             start_dt_utc = start_dt_local.astimezone(ZoneInfo("UTC"))
             end_dt_utc = end_dt_local.astimezone(ZoneInfo("UTC"))
             query = query.filter(Log.timestamp.between(start_dt_utc, end_dt_utc))
         except ValueError:
-            flash('Invalid date format for filter.', 'warning')
+            flash('Invalid date format for filter. Please use DD-MM-YYYY.', 'warning')
             filter_date_str = ''
 
     if filter_entity:
-        query = query.filter(Log.entity.ilike(f'%{filter_entity}%'))
+        query = query.filter(Log.entity == filter_entity)
 
     pagination = query.order_by(Log.timestamp.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
     
     return render_template('logs.html', pagination=pagination, per_page=per_page,
-                           filter_date=filter_date_str, filter_entity=filter_entity)
+                           filter_date=filter_date_str, filter_entity=filter_entity,
+                           distinct_entities=distinct_entities)
 
 
 @main_bp.route("/logs/clear", methods=['POST'])
@@ -261,14 +265,12 @@ def clear_logs():
         return redirect(url_for('main.logs'))
 
     try:
-        # Create a naive datetime from user input, then assign IST timezone
-        local_dt_naive = datetime.strptime(f"{clear_date_str} {clear_time_str}", '%Y-%m-%d %H:%M')
+        # CHANGE: Parse DD-MM-YYYY format for date
+        local_dt_naive = datetime.strptime(f"{clear_date_str} {clear_time_str}", '%d-%m-%Y %H:%M')
         local_dt_aware = local_dt_naive.replace(tzinfo=IST)
         
-        # Convert to UTC for database comparison
         utc_dt_aware = local_dt_aware.astimezone(ZoneInfo("UTC"))
         
-        # Perform the delete operation
         num_deleted = db.session.query(Log).filter(Log.timestamp <= utc_dt_aware).delete()
         db.session.commit()
         
@@ -278,7 +280,7 @@ def clear_logs():
             flash('No log entries found on or before the specified date and time.', 'info')
 
     except ValueError:
-        flash('Invalid date or time format.', 'danger')
+        flash('Invalid date or time format. Please use DD-MM-YYYY.', 'danger')
     except Exception as e:
         db.session.rollback()
         flash(f'An error occurred while clearing logs: {e}', 'danger')

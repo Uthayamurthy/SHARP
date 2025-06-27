@@ -124,7 +124,6 @@ def mqtt_setup():
                 }
                 print(f"SHARP: Subscribed to health topic for {device_name}: {health_topic}")
 
-            # Find all actionables and subscribe to their ack_topics
             for actionable_name, info in device_info.items():
                 if isinstance(info, dict) and 'ack_topic' in info:
                     topic = info['ack_topic']
@@ -134,7 +133,7 @@ def mqtt_setup():
                             'location': location,
                             'device_name': device_name,
                             'actionable_name': actionable_name,
-                            'actionable_info': info
+                            'actionable_info': info # Direct reference to the actionable's dict
                         }
                     except Exception as e:
                         print(f'SHARP: Failed to subscribe to topic {topic}: {e}')
@@ -164,7 +163,7 @@ def handle_mqtt_message(client, userdata, message):
 
                 if prev_status != 'online':
                     with app.app_context():
-                        log_event(f"Device ({device_context['device_name']})", "Came online")
+                        log_event(f"Device ({device_context['device_name']}@{device_context['location']})", "Came online")
 
                 socketio.emit('update_health', data={
                     'location': device_context['location'],
@@ -193,7 +192,9 @@ def handle_mqtt_message(client, userdata, message):
         
         # Log the event
         with app.app_context():
-            log_event(f"Device ({context['device_name']})", f"'{context['actionable_name']}' state changed to '{state}'")
+            entity_name = f"Device ({context['device_name']}@{context['location']})"
+            event_details = f"'{context['actionable_name']}' state changed to '{state}'"
+            log_event(entity_name, event_details)
 
         # Emit the update to the frontend
         socketio.emit('update_state', data={'obj_id': obj_id, 'state': state})
@@ -251,7 +252,7 @@ def check_device_liveness():
                             if device_info['online_status'] != 'offline':
                                 print(f"SHARP: Initial health ping not received for {device_name}. Marking as offline.")
                                 device_info['online_status'] = 'offline'
-                                log_event(f"Device ({device_name})", "Went offline")
+                                log_event(f"Device ({device_name}@{location})", "Went offline")
                                 socketio.emit('update_health', data={
                                     'location': location,
                                     'device': device_name,
@@ -266,7 +267,7 @@ def check_device_liveness():
                             if device_info['online_status'] != 'offline':
                                 print(f"SHARP: Health check FAILED for {device_name}. Marking as offline.")
                                 device_info['online_status'] = 'offline'
-                                log_event(f"Device ({device_name})", "Went offline")
+                                log_event(f"Device ({device_name}@{location})", "Went offline")
                                 socketio.emit('update_health', data={
                                     'location': location,
                                     'device': device_name,

@@ -1,4 +1,3 @@
-# SHARP-2.0/automation_agent.py
 '''
 S.H.A.R.P - Smart Home Automation Research Project
 
@@ -24,7 +23,7 @@ from datetime import datetime, time as dt_time
 from time import sleep
 import paho.mqtt.client as mqtt
 import json
-from sun_manager import SunManager # <-- IMPORT NEW MANAGER
+from sun_manager import SunManager
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -98,18 +97,18 @@ class TIME_SCHEDULER:
         if self.is_time():
             if not self.on and not self.published_on:
                 self.client.publish(self.pub_topic, 'on', qos=1)
-                msg = f"Automation '{self.alias}' fired, turning ON target."
-                print(f"SHARP AUTO AGENT TS: {msg}")
-                agent_log_event("SHARP", msg)
+                msg = "Fired, turning ON target."
+                print(f"SHARP AUTO AGENT TS: Automation '{self.alias}' {msg}")
+                agent_log_event(f"SHARP-{self.alias}", msg)
                 sleep(0.25)
                 self.published_on = True
                 self.published_off = False
         else:
             if self.on and not self.published_off:
-                    msg = f"Automation '{self.alias}' fired, turning OFF target."
-                    print(f"SHARP AUTO AGENT TS: {msg}")
+                    msg = "Fired, turning OFF target."
+                    print(f"SHARP AUTO AGENT TS: Automation '{self.alias}' {msg}")
                     self.client.publish(self.pub_topic, 'off', qos=1)
-                    agent_log_event("SHARP", msg)
+                    agent_log_event(f"SHARP-{self.alias}", msg)
                     self.published_off = True
                     self.published_on = False
                     sleep(0.25)
@@ -170,18 +169,18 @@ class SUNLIGHT_TRIGGERED:
         if self.is_time():
             if not self.on and not self.published_on:
                 self.client.publish(self.pub_topic, 'on', qos=1)
-                msg = f"Automation '{self.alias}' fired, turning ON target."
-                print(f"SHARP AUTO AGENT ST: {msg}")
-                agent_log_event("SHARP", msg)
+                msg = "Fired, turning ON target."
+                print(f"SHARP AUTO AGENT ST: Automation '{self.alias}' {msg}")
+                agent_log_event(f"SHARP-{self.alias}", msg)
                 sleep(0.25)
                 self.published_on = True
                 self.published_off = False
         else:
             if self.on and not self.published_off:
                 self.client.publish(self.pub_topic, 'off', qos=1)
-                msg = f"Automation '{self.alias}' fired, turning OFF target."
-                print(f"SHARP AUTO AGENT ST: {msg}")
-                agent_log_event("SHARP", msg)
+                msg = "Fired, turning OFF target."
+                print(f"SHARP AUTO AGENT ST: Automation '{self.alias}' {msg}")
+                agent_log_event(f"SHARP-{self.alias}", msg)
                 self.published_off = True
                 self.published_on = False
                 sleep(0.25)
