@@ -155,8 +155,43 @@ Contact Author : uthayamurthy2006@gmail.com
                     </div>
                 </div>
             </div>
-            <!-- ... (Card footer remains the same) -->
-<!-- ... (Modal remains the same) -->
+            <div class="card-footer text-end">
+                <form action="/toggle-automation" method="post" class="d-inline">
+                    {% if am_info['enabled'] %}
+                        <button type="submit" name="toggle_am_name" value="{{ am_name }}--pause" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pause-circle-fill"></i> Pause
+                        </button>
+                    {% else %}
+                        <button type="submit" name="toggle_am_name" value="{{ am_name }}--resume" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-play-circle-fill"></i> Resume
+                        </button>
+                    {% endif %}
+                </form>
+                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ am_name.replace(' ', '_') }}">
+                    <i class="bi bi-trash-fill"></i> Delete
+                </button>
+            </div>
+        </div>
+        <div class="modal fade" id="deleteModal-{{ am_name.replace(' ', '_') }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ am_name.replace(' ', '_') }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteModalLabel-{{ am_name.replace(' ', '_') }}">Confirm Deletion</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        Are you sure you want to delete the automation '<strong>{{ am_name | dashless }}</strong>'? This action cannot be undone.
+                    </div>
+                    <div class="modal-footer">
+                        <form action="/delete-automation" method="post">
+                            <input type="hidden" name="delete_am_name" value="{{ am_name }}">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-danger">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% endfor %}
       </div>
     </div>

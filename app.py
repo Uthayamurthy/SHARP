@@ -25,7 +25,7 @@ from flask_mqtt import Mqtt
 from time import sleep
 from __version__ import version
 from auth import auth_bp
-from routes import main_bp, format_time_12hr, dashless, to_ist, colorize_log # <-- IMPORT NEW FILTER
+from routes import main_bp, format_time_12hr, dashless, to_ist, colorize_log
 from extensions import db, bcrypt, login_manager
 from models import User, Log
 from automation_agent import AUTO_AGENT
@@ -56,7 +56,7 @@ for location, devices in devices_info_data.items():
 
 app.config['SECRET_KEY'] = flask_conf['SECRET_KEY']
 app.config['TEMPLATES_AUTO_RELOAD'] = flask_conf['TEMPLATES_AUTO_RELOAD']
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///sharp.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/sharp.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config['MQTT_BROKER_URL'] = mqtt_conf['MQTT_HOST']
@@ -176,7 +176,8 @@ def handle_mqtt_message(client, userdata, message):
         
         with app.app_context():
             entity_name = f"Device ({context['device_name']}@{context['location']})"
-            event_details = f"'{context['actionable_name']}' state changed to '{state}'"
+            log_state = state.upper()
+            event_details = f"{context['actionable_name']} state changed to {log_state}"
             log_event(entity_name, event_details)
         socketio.emit('update_state', data={'obj_id': obj_id, 'state': state})
         return

@@ -28,18 +28,15 @@ def to_ist(utc_dt):
 def colorize_log(event_text):
     """A Jinja filter to colorize keywords in a log event string."""
     
-    # Color the actionable name first if it exists
-    if "state changed to" in event_text:
-        match = re.match(r"('[\w\s-]+')", event_text)
-        if match:
-            actionable_part = match.group(1)
-            colored_actionable = f'<span class="text-primary fw-bold">{actionable_part}</span>'
-            event_text = event_text.replace(actionable_part, colored_actionable, 1)
+    # New logic to find the actionable name without quotes
+    match = re.match(r"([\w\s-]+) state changed to", event_text)
+    if match:
+        actionable_part = match.group(1).strip()
+        colored_actionable = f'<span class="text-primary fw-bold">{actionable_part}</span>'
+        event_text = event_text.replace(actionable_part, colored_actionable, 1)
 
     # Color general keywords
     replacements = {
-        'on': '<span class="text-success fw-bold">on</span>',
-        'off': '<span class="text-danger fw-bold">off</span>',
         'online': '<span class="text-success fw-bold">online</span>',
         'offline': '<span class="text-danger fw-bold">offline</span>',
         'started': '<span class="text-success fw-bold">started</span>',
