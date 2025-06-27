@@ -131,25 +131,27 @@ def mqtt_setup():
 def handle_mqtt_message(client, userdata, message):
     topic = message.topic
     payload_str = message.payload.decode()
-    
-    # --- HEALTH CHECK LOGIC ---
+
     if topic in health_topic_map:
         device_context = health_topic_map[topic]
         device_info = device_context['info']
         
         try:
             health_data = json.loads(payload_str)
+            current_time = time.time()
+
             if health_data.get('status') == 'online':
                 device_info['online_status'] = 'online'
-                device_info['last_seen'] = time.time()
+                device_info['last_seen'] = current_time 
                 device_info['health_data'] = health_data
                 
                 print(f"SHARP: Health check PASSED for {device_context['device_name']}. Status: online.")
-                
+
                 socketio.emit('update_health', data={
                     'location': device_context['location'],
                     'device': device_context['device_name'], 
                     'status': 'online',
+                    'last_seen': current_time,
                     'health_data': health_data
                 })
 
