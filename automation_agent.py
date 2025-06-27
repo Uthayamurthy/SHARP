@@ -1,24 +1,4 @@
-'''
-S.H.A.R.P - Smart Home Automation Research Project
-
-    Copyright (C) 2024  R Uthaya Murthy
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-Contact Author : uthayamurthy2006@gmail.com
-'''
-
+# SHARP-2.0/automation_agent.py
 '''
 S.H.A.R.P - Smart Home Automation Research Project
 
@@ -45,6 +25,43 @@ from time import sleep
 import paho.mqtt.client as mqtt
 import json
 from sun_manager import SunManager # <-- IMPORT NEW MANAGER
+from sqlalchemy import create_engine, Column, Integer, String, DateTime
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+# --- Database Setup for Agent Logging ---
+Base = declarative_base()
+
+class Log(Base):
+    __tablename__ = 'log'
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    entity = Column(String(100), nullable=False)
+    event = Column(String(255), nullable=False)
+
+try:
+    # Use the same relative path as the main app
+    engine = create_engine('sqlite:///../instance/sharp.db')
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    print("SHARP AUTO AGENT: Database connection for logging established.")
+except Exception as e:
+    print(f"SHARP AUTO AGENT: Could not connect to DB for logging: {e}")
+    SessionLocal = None
+
+def agent_log_event(entity, event):
+    if not SessionLocal:
+        print(f"SHARP AUTO AGENT: DB not available. Log failed: {entity} - {event}")
+        return
+    session = SessionLocal()
+    try:
+        log_entry = Log(entity=entity, event=event)
+        session.add(log_entry)
+        session.commit()
+    except Exception as e:
+        print(f"SHARP AUTO AGENT: Error logging event: {e}")
+        session.rollback()
+    finally:
+        session.close()
+# --- End Database Setup ---
 
 
 class TIME_SCHEDULER:
@@ -81,14 +98,18 @@ class TIME_SCHEDULER:
         if self.is_time():
             if not self.on and not self.published_on:
                 self.client.publish(self.pub_topic, 'on', qos=1)
-                print(f"SHARP AUTO AGENT TS: Published 'on' to {self.pub_topic} for automation - {self.alias}")
+                msg = f"Automation '{self.alias}' fired, turning ON target."
+                print(f"SHARP AUTO AGENT TS: {msg}")
+                agent_log_event("SHARP", msg)
                 sleep(0.25)
                 self.published_on = True
                 self.published_off = False
         else:
             if self.on and not self.published_off:
-                    print(f"SHARP AUTO AGENT TS: Published 'off' to {self.pub_topic} for automation - {self.alias}")
+                    msg = f"Automation '{self.alias}' fired, turning OFF target."
+                    print(f"SHARP AUTO AGENT TS: {msg}")
                     self.client.publish(self.pub_topic, 'off', qos=1)
+                    agent_log_event("SHARP", msg)
                     self.published_off = True
                     self.published_on = False
                     sleep(0.25)
@@ -149,14 +170,18 @@ class SUNLIGHT_TRIGGERED:
         if self.is_time():
             if not self.on and not self.published_on:
                 self.client.publish(self.pub_topic, 'on', qos=1)
-                print(f"SHARP AUTO AGENT ST: Published 'on' to {self.pub_topic} for automation '{self.alias}'")
+                msg = f"Automation '{self.alias}' fired, turning ON target."
+                print(f"SHARP AUTO AGENT ST: {msg}")
+                agent_log_event("SHARP", msg)
                 sleep(0.25)
                 self.published_on = True
                 self.published_off = False
         else:
             if self.on and not self.published_off:
                 self.client.publish(self.pub_topic, 'off', qos=1)
-                print(f"SHARP AUTO AGENT ST: Published 'off' to {self.pub_topic} for automation '{self.alias}'")
+                msg = f"Automation '{self.alias}' fired, turning OFF target."
+                print(f"SHARP AUTO AGENT ST: {msg}")
+                agent_log_event("SHARP", msg)
                 self.published_off = True
                 self.published_on = False
                 sleep(0.25)

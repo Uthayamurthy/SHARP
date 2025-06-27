@@ -1,5 +1,6 @@
 from extensions import db
 from flask_login import UserMixin
+from datetime import datetime
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -11,3 +12,11 @@ class User(db.Model, UserMixin):
 
     def __repr__(self):
         return f"User('{self.username}', '{self.email}', '{self.role}')"
+class Log(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    entity = db.Column(db.String(100), nullable=False)
+    event = db.Column(db.String(255), nullable=False)
+
+    def __repr__(self):
+        return f"Log('{self.timestamp}', '{self.entity}', '{self.event}')"

@@ -1,3 +1,4 @@
+# SHARP-2.0/templates/logs.html
 <!--
 S.H.A.R.P - Smart Home Automation Research Project
 
@@ -31,61 +32,129 @@ Contact Author : uthayamurthy2006@gmail.com
 {% endblock %}
 
 {% block body %}
-<div class="d-flex justify-content-end m-3">
-    <a href="refresh-logs" class="btn btn-outline-primary"><i class="bi bi-arrow-clockwise"></i>   Refresh</a>
-</div>
-    <form method="get" class="form-inline mx-2">
-    <div class="container-fluid text-center">
-        <div class="row">
-            <div class="col-md-3 col-lg-3 m-4">
-                <span  class="lead mx-2">Logs per page:</span>
-            </div>
-            <div class="col-md-4 col-lg-3 m-4">
-                <input type="number" name="per_page" id="per_page" value="{{ per_page }}" class="form-control mr-2">
-            </div>
-            <div class="col-md-3 col-lg-2 m-4">
-                <button type="submit" class="btn btn-outline-primary"><i class="bi bi-funnel-fill"></i> Set</button>
+<div class="container-fluid">
+    <!-- Filter and Controls Form -->
+    <div class="card my-4">
+        <div class="card-header">
+            Filters & Controls
+        </div>
+        <div class="card-body">
+            <form method="get" class="form-inline">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md">
+                        <label for="filter_date" class="form-label">Date</label>
+                        <input type="date" name="filter_date" id="filter_date" value="{{ filter_date }}" class="form-control">
+                    </div>
+                    <div class="col-md">
+                        <label for="filter_entity" class="form-label">Entity</label>
+                        <input type="text" name="filter_entity" id="filter_entity" value="{{ filter_entity }}" placeholder="e.g., SHARP or Device" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="per_page" class="form-label">Per Page</label>
+                        <input type="number" name="per_page" id="per_page" value="{{ per_page }}" class="form-control">
+                    </div>
+                    <div class="col-md-auto">
+                        <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel-fill"></i> Filter</button>
+                    </div>
+                    <div class="col-md-auto">
+                        <a href="{{ url_for('main.logs') }}" class="btn btn-secondary w-100"><i class="bi bi-x-circle"></i> Clear</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Logs Table -->
+    <div class="table-responsive">
+        <table class="table table-striped my-4">
+            <thead class="table-dark">
+                <tr>
+                    <th>#</th>
+                    <th><i class="bi bi-calendar"></i> Date</th>
+                    <th><i class="bi bi-hourglass-split"></i> Time (IST)</th>
+                    <th>Entity</th>
+                    <th><i class="bi bi-card-text"></i> Event</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in pagination.items %}
+                    <tr>
+                        <td>{{ pagination.first + loop.index0 }}</td>
+                        <td>{{ (item.timestamp | to_ist).strftime('%d/%m/%Y') }}</td>
+                        <td>{{ (item.timestamp | to_ist).strftime('%I:%M:%S %p') }}</td>
+                        <td>{{ item.entity }}</td>
+                        <td>{{ item.event }}</td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No logs found for the current filter.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Log pages">
+        <ul class="pagination justify-content-center flex-wrap">
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"><a class="page-link" href="{{ url_for('main.logs', page=1, per_page=per_page, filter_date=filter_date, filter_entity=filter_entity) }}">First</a></li>
+            <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"><a class="page-link" href="{{ url_for('main.logs', page=pagination.prev_num, per_page=per_page, filter_date=filter_date, filter_entity=filter_entity) }}">«</a></li>
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('main.logs', page=p, per_page=per_page, filter_date=filter_date, filter_entity=filter_entity) }}">{{ p }}</a></li>
+                {% else %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+            {% endfor %}
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"><a class="page-link" href="{{ url_for('main.logs', page=pagination.next_num, per_page=per_page, filter_date=filter_date, filter_entity=filter_entity) }}">»</a></li>
+            <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"><a class="page-link" href="{{ url_for('main.logs', page=pagination.pages, per_page=per_page, filter_date=filter_date, filter_entity=filter_entity) }}">Last</a></li>
+        </ul>
+    </nav>
+    {% endif %}
+
+    <!-- Danger Zone for Clearing Logs -->
+    {% if current_user.role == 'Admin' %}
+    <div class="card border-danger my-5">
+        <div class="card-header bg-danger text-white">Danger Zone</div>
+        <div class="card-body">
+            <h5 class="card-title text-danger">Clear Log Entries</h5>
+            <p>This will permanently delete all log entries up to and including the specified date and time. This action cannot be undone.</p>
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#clearLogsModal">
+                <i class="bi bi-trash-fill"></i> Clear Logs...
+            </button>
+        </div>
+    </div>
+
+    <!-- Clear Logs Modal -->
+    <div class="modal fade" id="clearLogsModal" tabindex="-1" aria-labelledby="clearLogsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="{{ url_for('main.clear_logs') }}" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="clearLogsModalLabel">Confirm Log Deletion</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Please select the date and time. All logs created <strong>on or before</strong> this moment will be deleted.</p>
+                        <div class="mb-3">
+                            <label for="clear_date" class="form-label">Date</label>
+                            <input type="date" id="clear_date" name="clear_date" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="clear_time" class="form-label">Time (IST)</label>
+                            <input type="time" id="clear_time" name="clear_time" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger"><i class="bi bi-trash-fill"></i> Delete Logs</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
-    </form>
+    {% endif %}
 
-    <table class="table table-striped my-5">
-        <thead>
-            <tr>
-                <th scope="col">S.No</th>
-                <th scope="col"><i class="bi bi-calendar"></i> Date</th>
-                <th scope="col"><i class="bi bi-hourglass-split"></i> Time</th>
-                <th scope="col"><i class="bi bi-card-text"></i> Message</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in items %}
-                <tr>
-                    <th scope="row">{{ item[0] }}</th>
-                    <td> {{ item[1] }} </td>
-                    <td> {{ item[2] }} </td>
-                    <td> {{ item[3] }} </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    <nav>
-        <ul class="pagination">
-            <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-                <a class="page-link" href="?page=1&per_page={{ per_page }}">Latest</a>
-            </li>
-            <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-                <a class="page-link" href="?page={{ page - 1 }}&per_page={{ per_page }}"><i class="bi bi-arrow-left-circle"></i>   Next</a>
-            </li>
-            <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-                <a class="page-link" href="?page={{ page + 1 }}&per_page={{ per_page }}">Previous   <i class="bi bi-arrow-right-circle"></i> </a>
-            </li>
-            <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-                <a class="page-link" href="?page={{ total_pages }}&per_page={{ per_page }}">Oldest</a>
-            </li>
-        </ul>
-    </nav>
 </div>
 {% endblock %}

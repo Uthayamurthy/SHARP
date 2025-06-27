@@ -25,10 +25,11 @@ from flask_mqtt import Mqtt
 from time import sleep
 from __version__ import version
 from auth import auth_bp
-from routes import main_bp, format_time_12hr, dashless
+from routes import main_bp, format_time_12hr, dashless, to_ist
 from extensions import db, bcrypt, login_manager
-from models import User
+from models import User, Log
 from automation_agent import AUTO_AGENT
+from database_logger import log_event
 import multiprocessing
 import json
 import signal
@@ -85,6 +86,8 @@ app.register_blueprint(main_bp)
 
 app.jinja_env.filters['format_time'] = format_time_12hr
 app.jinja_env.filters['dashless'] = dashless
+app.jinja_env.filters['to_ist'] = to_ist
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -141,11 +144,17 @@ def handle_mqtt_message(client, userdata, message):
             current_time = time.time()
 
             if health_data.get('status') == 'online':
+                prev_status = device_info.get('online_status', 'waiting')
+                
                 device_info['online_status'] = 'online'
                 device_info['last_seen'] = current_time 
                 device_info['health_data'] = health_data
                 
                 print(f"SHARP: Health check PASSED for {device_context['device_name']}. Status: online.")
+
+                if prev_status != 'online':
+                    with app.app_context():
+                        log_event(f"Device ({device_context['device_name']})", "Came online")
 
                 socketio.emit('update_health', data={
                     'location': device_context['location'],
@@ -171,6 +180,10 @@ def handle_mqtt_message(client, userdata, message):
                     obj_id = f'{location}-{device_name}-{actionable_name}'
                     print(f'SHARP: Received message from {obj_id}, New state is "{state}" ')
                     info['state'] = state
+                    
+                    with app.app_context():
+                        log_event(f"Device ({device_name})", f"'{actionable_name}' state changed to '{state}'")
+
                     socketio.emit('update_state', data={'obj_id': obj_id, 'state': state})
 
 @socketio.on('connect')
@@ -222,26 +235,30 @@ def check_device_liveness():
                         start_time = device_info.get('start_time', 0)
 
                         if now - start_time > initial_wait_time:
-                            print(f"SHARP: Initial health ping not received for {device_name}. Marking as offline.")
-                            device_info['online_status'] = 'offline'
-                            socketio.emit('update_health', data={
-                                'location': location,
-                                'device': device_name,
-                                'status': 'offline'
-                            })
+                            if device_info['online_status'] != 'offline':
+                                print(f"SHARP: Initial health ping not received for {device_name}. Marking as offline.")
+                                device_info['online_status'] = 'offline'
+                                log_event(f"Device ({device_name})", "Went offline")
+                                socketio.emit('update_health', data={
+                                    'location': location,
+                                    'device': device_name,
+                                    'status': 'offline'
+                                })
 
                     elif current_status == 'online':
                         timeout = device_info['health_interval_sec'] * 2.5 
                         last_seen = device_info.get('last_seen', 0)
 
                         if now - last_seen > timeout:
-                            print(f"SHARP: Health check FAILED for {device_name}. Marking as offline.")
-                            device_info['online_status'] = 'offline'
-                            socketio.emit('update_health', data={
-                                'location': location,
-                                'device': device_name,
-                                'status': 'offline'
-                            })
+                            if device_info['online_status'] != 'offline':
+                                print(f"SHARP: Health check FAILED for {device_name}. Marking as offline.")
+                                device_info['online_status'] = 'offline'
+                                log_event(f"Device ({device_name})", "Went offline")
+                                socketio.emit('update_health', data={
+                                    'location': location,
+                                    'device': device_name,
+                                    'status': 'offline'
+                                })
             
             time.sleep(10)
 
@@ -274,6 +291,8 @@ with app.app_context():
             print("SHARP: Setup flag created. Default user will not be recreated on subsequent starts.")
         else:
              print("SHARP: Default admin email already exists in the database. Skipping creation.")
+    
+    log_event("SHARP", "Application started")
 
     mqtt_setup()
     start_auto_agent()

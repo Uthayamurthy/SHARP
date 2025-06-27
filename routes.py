@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, flash, url_for, current_app, jsonify
 from flask_login import login_required, current_user
 from extensions import db, bcrypt
-from models import User
+from models import User, Log
 from forms import (UpdateProfileForm, ChangePasswordForm, CreateUserForm, 
                    AdminUpdateUserForm, AdminChangePasswordForm, AdminUpdateRoleForm, AdminDeleteUserForm)
 from decorators import admin_required
@@ -10,13 +10,24 @@ import secrets
 import os
 from PIL import Image
 import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 main_bp = Blueprint('main', __name__)
 
-# --- Helper Functions ---
+# --- Timezone & Helper Functions ---
+IST = ZoneInfo("Asia/Kolkata")
+
+def to_ist(utc_dt):
+    """Converts a UTC datetime object to IST."""
+    if utc_dt.tzinfo is None:
+        utc_dt = utc_dt.replace(tzinfo=ZoneInfo("UTC"))
+    return utc_dt.astimezone(IST)
+
 def format_time_12hr(time_str):
-    from datetime import datetime
     try:
+        if isinstance(time_str, datetime):
+             return time_str.strftime('%I:%M %p')
         dt = datetime.strptime(time_str, '%H:%M')
         return dt.strftime('%I:%M %p')
     except (ValueError, TypeError):
@@ -113,7 +124,6 @@ def automations():
             
             actionables_for_device = []
             for actionable_name, info in device_info.items():
-                # An item is an actionable if its value is a dictionary and it has an action_topic
                 if isinstance(info, dict) and 'action_topic' in info:
                     actionables_for_device.append(actionable_name)
             
@@ -209,31 +219,70 @@ def about():
 @main_bp.route('/logs')
 @login_required
 def logs():
-    from logs_loader import load_logs
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 25, type=int)
+    filter_date_str = request.args.get('filter_date', '')
+    filter_entity = request.args.get('filter_entity', '').strip()
 
-    log_items = current_app.config.get('LOG_ITEMS')
-    if page == 1 or not log_items:
-        log_items = load_logs()
-        current_app.config['LOG_ITEMS'] = log_items
+    query = Log.query
 
-    if log_items is None:
-        return "Failed to get the logs, looks like SHARP Service is not enabled..."
+    if filter_date_str:
+        try:
+            filter_date_obj = datetime.strptime(filter_date_str, '%Y-%m-%d').date()
+            start_dt_local = datetime.combine(filter_date_obj, datetime.min.time()).replace(tzinfo=IST)
+            end_dt_local = datetime.combine(filter_date_obj, datetime.max.time()).replace(tzinfo=IST)
+            start_dt_utc = start_dt_local.astimezone(ZoneInfo("UTC"))
+            end_dt_utc = end_dt_local.astimezone(ZoneInfo("UTC"))
+            query = query.filter(Log.timestamp.between(start_dt_utc, end_dt_utc))
+        except ValueError:
+            flash('Invalid date format for filter.', 'warning')
+            filter_date_str = ''
+
+    if filter_entity:
+        query = query.filter(Log.entity.ilike(f'%{filter_entity}%'))
+
+    pagination = query.order_by(Log.timestamp.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
     
-    total_items = len(log_items)
-    total_pages = (total_items + per_page - 1) // per_page
-    start = (page - 1) * per_page
-    end = start + per_page
-    paginated_items = log_items[start:end]
-    
-    return render_template('logs.html', items=paginated_items, page=page, per_page=per_page, total_pages=total_pages)
+    return render_template('logs.html', pagination=pagination, per_page=per_page,
+                           filter_date=filter_date_str, filter_entity=filter_entity)
 
-@main_bp.route('/refresh-logs')
+
+@main_bp.route("/logs/clear", methods=['POST'])
 @login_required
-def refresh_logs():
-    from logs_loader import load_logs
-    current_app.config['LOG_ITEMS'] = load_logs()
+@admin_required
+def clear_logs():
+    clear_date_str = request.form.get('clear_date')
+    clear_time_str = request.form.get('clear_time')
+
+    if not clear_date_str or not clear_time_str:
+        flash('Both date and time are required to clear logs.', 'warning')
+        return redirect(url_for('main.logs'))
+
+    try:
+        # Create a naive datetime from user input, then assign IST timezone
+        local_dt_naive = datetime.strptime(f"{clear_date_str} {clear_time_str}", '%Y-%m-%d %H:%M')
+        local_dt_aware = local_dt_naive.replace(tzinfo=IST)
+        
+        # Convert to UTC for database comparison
+        utc_dt_aware = local_dt_aware.astimezone(ZoneInfo("UTC"))
+        
+        # Perform the delete operation
+        num_deleted = db.session.query(Log).filter(Log.timestamp <= utc_dt_aware).delete()
+        db.session.commit()
+        
+        if num_deleted > 0:
+            flash(f'Successfully cleared {num_deleted} log entries.', 'success')
+        else:
+            flash('No log entries found on or before the specified date and time.', 'info')
+
+    except ValueError:
+        flash('Invalid date or time format.', 'danger')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'An error occurred while clearing logs: {e}', 'danger')
+
     return redirect(url_for('main.logs'))
 
 
@@ -264,7 +313,6 @@ def profile():
 def change_password():
     form = ChangePasswordForm()
     if form.validate_on_submit():
-        # Check password strength again on the server side as a final validation
         strength = check_password_strength(form.password.data)
         if strength['score'] < 3:
             flash(f"Password is too weak. Please choose a stronger one.", 'danger')
@@ -355,7 +403,6 @@ def edit_user(user_id):
             flash(f"User '{username_deleted}' has been permanently deleted.", 'danger')
             return redirect(url_for('main.admin_dashboard'))
 
-    # For a GET request, pre-populate the forms
     details_form.username.data = user.username
     details_form.email.data = user.email
     role_form.role.data = user.role
