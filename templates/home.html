@@ -43,23 +43,35 @@ Contact Author : uthayamurthy2006@gmail.com
 
                 <div id="collapse{{ location }}" class="accordion-collapse collapse show" data-bs-parent="#accordion-{{ location }}">
                     <div class="accordion-body">
-                        {% for device, actionable in devices.items() %}
-                            <div class="row">
-                                <h4 class="h4">{{ device }}</h4>
+                        {% for device, device_info in devices.items() %}
+                            
+                            <!-- CHANGE 1: A container for the device header -->
+                            <div class="row align-items-center mb-2">
+                                <div class="col">
+                                    <h4 class="h4 d-inline">{{ device }}</h4>
+                                    <!-- CHANGE 2: Add the status badge with a unique ID -->
+                                    <!-- It starts as 'Unknown' and will be updated by JS -->
+                                    <span id="status-{{ location }}-{{ device }}" class="badge rounded-pill ms-2 text-bg-secondary">Unknown</span>
+                                </div>
                             </div>
-                            <div class="d-flex flex-wrap justify-content-center align-items-center gap-3 my-4">
-                                {% for name, info in actionable.items() %}
-                                    {% if info['state'] == 'on' -%}
-                                        {% set btn_color='success' %}
-                                        {% set btn_value='off' %}
-                                    {% elif info['state'] == 'off' -%}
-                                        {% set btn_color='danger' %}
-                                        {% set btn_value='on' %}
-                                    {% else -%}
-                                        {% set btn_color='outline-secondary' %}
-                                        {% set btn_value='on' %}
+
+                            <!-- CHANGE 3: Add a unique ID to the div wrapping the buttons -->
+                            <div id="device-controls-{{ location }}-{{ device }}" class="d-flex flex-wrap justify-content-center align-items-center gap-3 my-4">
+                                {% for name, info in device_info.items() %}
+                                    <!-- We only want to create buttons for actual actionables, not for 'health_topic', etc. -->
+                                    {% if info is mapping and 'icon' in info %}
+                                        {% if info['state'] == 'on' -%}
+                                            {% set btn_color='success' %}
+                                            {% set btn_value='off' %}
+                                        {% elif info['state'] == 'off' -%}
+                                            {% set btn_color='danger' %}
+                                            {% set btn_value='on' %}
+                                        {% else -%}
+                                            {% set btn_color='outline-secondary' %}
+                                            {% set btn_value='on' %}
+                                        {% endif %}
+                                        <button id="{{ location }}-{{ device }}-{{ name }}" class="btn btn-{{ btn_color }} btn-lg" value="{{ btn_value }}"><i class="bi bi-{{ info['icon'] }}"></i><br>{{ name | dashless }}</button>
                                     {% endif %}
-                                    <button id="{{ location }}-{{ device }}-{{ name }}" class="btn btn-{{ btn_color }} btn-lg" value="{{ btn_value }}"><i class="bi bi-{{ info['icon'] }}"></i><br>{{ name | dashless }}</button>
                                 {% endfor %}     
                             </div>
                         {% endfor %}
@@ -74,38 +86,79 @@ Contact Author : uthayamurthy2006@gmail.com
     <script type="text/javascript" charset="utf-8">
         var socket = io.connect('http://' + document.domain + ':' + location.port);
         var devices_info = {}
-        socket.on('connect', function()
-        {
-        console.log ("Connected to socket server.");
+        socket.on('connect', function() {
+            console.log ("Connected to socket server.");
         });
 
-        socket.on('devices_info', function(data)
-        {
-        // console.log ("Got devices info: ");
-        // console.log (data);
-        devices_info = data;
-        for (const location in devices_info) {
-            for (const device in devices_info[location]) {
-                for (const actionable in devices_info[location][device]) {
-                    var button_id = location + '-' + device + '-' + actionable;
-                    var button = document.getElementById(button_id);
-                    if (button) {
-                        (function(button, button_id, location, device, actionable) {
-                            button.addEventListener('click', function() {
-                            console.log("BUTTON CALLBACK : Clicked on button: " + button_id);
-                            var message = button.value;
-                            console.log("BUTTON CALLBACK : Message- " + message);
-                            socket.emit('publish', {'topic': devices_info[location][device][actionable]['action_topic'], 'state': message});
-                    });
-                })(button, button_id, location, device, actionable);
+        // This function will be the single point for updating the UI
+        function updateDeviceHealthUI(location, deviceName, status) {
+            const statusBadge = document.getElementById(`status-${location}-${deviceName}`);
+            const controlsContainer = document.getElementById(`device-controls-${location}-${deviceName}`);
+
+            if (!statusBadge || !controlsContainer) {
+                console.error(`UI elements for ${location}-${deviceName} not found.`);
+                return;
+            }
+
+            const buttons = controlsContainer.querySelectorAll('button');
+
+        if (status === 'online') {
+            statusBadge.className = 'badge rounded-pill ms-2 text-bg-success';
+            statusBadge.textContent = 'Online';
+            
+            buttons.forEach(button => {
+                button.disabled = false;
+                button.removeAttribute('title');
+            });
+
+        } else if (status === 'offline') {
+            statusBadge.className = 'badge rounded-pill ms-2 text-bg-danger';
+            statusBadge.textContent = 'Offline';
+
+            buttons.forEach(button => {
+                button.disabled = true;
+                button.title = 'Device is offline';
+            });
+
+        // Case 3 (NEW): Device is in WAITING state
+        } else { 
+            statusBadge.className = 'badge rounded-pill ms-2 text-bg-warning';
+            statusBadge.textContent = 'Waiting...';
+
+            buttons.forEach(button => {
+                button.disabled = true; // Buttons should be disabled while waiting
+                button.title = 'Waiting for device to report status';
+            });
             }
         }
-    }
-}
 
+        socket.on('devices_info', function(data) {
+            devices_info = data;
+            for (const location in devices_info) {
+                for (const deviceName in devices_info[location]) {
+                    const device_info = devices_info[location][deviceName];
+
+                    updateDeviceHealthUI(location, deviceName, device_info.online_status || 'offline');
+
+                    for (const actionableName in device_info) {
+                        if (typeof device_info[actionableName] === 'object' && device_info[actionableName] !== null && 'action_topic' in device_info[actionableName]) {
+                            const button_id = `${location}-${deviceName}-${actionableName}`;
+                            const button = document.getElementById(button_id);
+                            if (button) {
+                                (function(currentButton, topic, valueKey) {
+                                    currentButton.addEventListener('click', function() {
+                                        console.log(`Clicked on ${currentButton.id}. Publishing to ${topic}`);
+                                        const message = currentButton.value;
+                                        socket.emit('publish', {'topic': topic, 'state': message});
+                                    });
+                                })(button, device_info[actionableName]['action_topic']);
+                            }
+                        }
+                    }
+                }
+            }
         });
         
-
         socket.on('update_state', function(data) {
             console.log("UPDATE_STATE: Received " + data.obj_id + " - " + data.state);
             var button = document.getElementById(data.obj_id);
@@ -118,6 +171,11 @@ Contact Author : uthayamurthy2006@gmail.com
                 button.value = 'on';
             }
             console.log("UPDATE_STATE: Value of Button is " + button.value);
+        });
+
+        socket.on('update_health', function(data) {
+            console.log(`UPDATE_HEALTH: Received status for ${data.device}: ${data.status}`);
+            updateDeviceHealthUI(data.location, data.device, data.status);
         });
     </script>
 {% endblock %}
