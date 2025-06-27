@@ -19,10 +19,33 @@ S.H.A.R.P - Smart Home Automation Research Project
 Contact Author : uthayamurthy2006@gmail.com
 '''
 
-from datetime import datetime
+'''
+S.H.A.R.P - Smart Home Automation Research Project
+
+    Copyright (C) 2024  R Uthaya Murthy
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Contact Author : uthayamurthy2006@gmail.com
+'''
+
+from datetime import datetime, time as dt_time
 from time import sleep
 import paho.mqtt.client as mqtt
 import json
+from sun_manager import SunManager # <-- IMPORT NEW MANAGER
+
 
 class TIME_SCHEDULER:
     def __init__(self, client, pub_topic, start_time, end_time, alias=''):
@@ -69,18 +92,86 @@ class TIME_SCHEDULER:
                     self.published_off = True
                     self.published_on = False
                     sleep(0.25)
-                    
 
+class SUNLIGHT_TRIGGERED:
+    def __init__(self, client, pub_topic, sun_manager, params, alias=''):
+        self.client = client
+        self.pub_topic = pub_topic
+        self.sun_manager = sun_manager
+        self.params = params
+        self.alias = alias
+        
+        self.on = False
+        self.published_on = False
+        self.client.publish(self.pub_topic, 'off', qos=1)
+        self.published_off = True
+
+    def _get_trigger_time(self, trigger_info, sunrise, sunset):
+        trigger_type = trigger_info.get('type')
+        trigger_value = trigger_info.get('value')
+
+        if trigger_type == 'Sunrise':
+            return sunrise
+        elif trigger_type == 'Sunset':
+            return sunset
+        elif trigger_type == 'Time' and trigger_value:
+            try:
+                return datetime.strptime(trigger_value, '%H:%M').time()
+            except (ValueError, TypeError):
+                return None
+        return None
+
+    def is_time(self):
+        time_now = datetime.now().time()
+        today = datetime.now().date()
+        
+        sunrise, sunset = self.sun_manager.get_sun_times(today)
+
+        start_time = self._get_trigger_time(self.params['start'], sunrise, sunset)
+        end_time = self._get_trigger_time(self.params['end'], sunrise, sunset)
+
+        if not start_time or not end_time:
+            print(f"SHARP AUTO AGENT ST: Invalid trigger time for {self.alias}. Skipping check.")
+            return False
+
+        if start_time < end_time:
+            return time_now >= start_time and time_now <= end_time
+        else: # Over Midnight Condition
+            return time_now >= start_time or time_now <= end_time
+
+    def on_ack(self, state):
+        if state.lower() == 'on':
+            self.on = True
+        else:
+            self.on = False
+
+    def loop(self):
+        if self.is_time():
+            if not self.on and not self.published_on:
+                self.client.publish(self.pub_topic, 'on', qos=1)
+                print(f"SHARP AUTO AGENT ST: Published 'on' to {self.pub_topic} for automation '{self.alias}'")
+                sleep(0.25)
+                self.published_on = True
+                self.published_off = False
+        else:
+            if self.on and not self.published_off:
+                self.client.publish(self.pub_topic, 'off', qos=1)
+                print(f"SHARP AUTO AGENT ST: Published 'off' to {self.pub_topic} for automation '{self.alias}'")
+                self.published_off = True
+                self.published_on = False
+                sleep(0.25)
 
 class AUTO_AGENT:
-
     def __init__(self, conn):
         self.CONNECTED = False
         self.conn = conn
-
         self.automators = []
         self.msg_handles = {}
-    
+
+        with open('config/flask_app_conf.json', 'r') as f:
+            app_conf = json.load(f)
+        self.sun_manager = SunManager(app_conf)
+
     def load_info(self):
         with open('data/devices_info.json', 'r') as di_file:
             self.devices_info = json.load(di_file)
@@ -89,7 +180,6 @@ class AUTO_AGENT:
             self.automations = json.load(am_file)
 
     def connect(self):
-
         with open('config/mqtt_conf.json', 'r') as f:
             mqtt_conf = json.load(f)
 
@@ -104,22 +194,40 @@ class AUTO_AGENT:
         while self.CONNECTED != True:
             sleep(0.1)
             print('SHARP AUTO AGENT : Waiting for MQTT connection ......')
-            
+
     def init_automators(self):
         for auto_name, auto_info in self.automations.items():
-            if auto_info['AUTO_TYPE'] == 'TIME-SCHEDULED' and auto_info['enabled'] == True:
-                pub_topic = self.devices_info[auto_info['location']][auto_info['device']][auto_info['actionable']]['action_topic']
-                ack_topic = self.devices_info[auto_info['location']][auto_info['device']][auto_info['actionable']]['ack_topic']
+            if not auto_info.get('enabled', False):
+                continue
 
-                ts = TIME_SCHEDULER(self.client, pub_topic, auto_info['AUTO_PARAMS']['start_time'], auto_info['AUTO_PARAMS']['end_time'], alias=auto_name)
-                self.automators.append(ts)
+            pub_topic = self.devices_info[auto_info['location']][auto_info['device']][auto_info['actionable']]['action_topic']
+            ack_topic = self.devices_info[auto_info['location']][auto_info['device']][auto_info['actionable']]['ack_topic']
 
+            auto_instance = None
+            if auto_info['AUTO_TYPE'] == 'TIME-SCHEDULED':
+                auto_instance = TIME_SCHEDULER(
+                    self.client, pub_topic, 
+                    auto_info['AUTO_PARAMS']['start_time'], 
+                    auto_info['AUTO_PARAMS']['end_time'], 
+                    alias=auto_name
+                )
+                print(f"SHARP AUTO AGENT : Loaded automator - {auto_name}, TYPE - TIME-SCHEDULED")
+
+            elif auto_info['AUTO_TYPE'] == 'SUNLIGHT-TRIGGERED':
+                auto_instance = SUNLIGHT_TRIGGERED(
+                    self.client, pub_topic,
+                    self.sun_manager,
+                    auto_info['AUTO_PARAMS'],
+                    alias=auto_name
+                )
+                print(f"SHARP AUTO AGENT : Loaded automator - {auto_name}, TYPE - SUNLIGHT-TRIGGERED")
+            
+            if auto_instance:
+                self.automators.append(auto_instance)
                 if ack_topic not in self.msg_handles:
-                    self.msg_handles[ack_topic] = [ts.on_ack]
+                    self.msg_handles[ack_topic] = [auto_instance.on_ack]
                 else:
-                    self.msg_handles[ack_topic].append(ts.on_ack)
-
-                print(f"SHARP AUTO AGENT : Loaded automator - {auto_name}, TYPE - TIME-SCHEDULED, for {auto_info['location']}::{auto_info['device']}::{auto_info['actionable']}")            
+                    self.msg_handles[ack_topic].append(auto_instance.on_ack)
 
     def on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -148,7 +256,13 @@ class AUTO_AGENT:
         self.client.on_message = None
 
     def start_loop(self):
+        last_sun_check = datetime.now()
+
         while True:
+            if (datetime.now() - last_sun_check).total_seconds() > 3600:
+                self.sun_manager.update_if_needed()
+                last_sun_check = datetime.now()
+
             for auto in self.automators:
                 auto.loop()
             sleep(0.25)
@@ -170,17 +284,11 @@ class AUTO_AGENT:
                     print("SHARP AUTO AGENT : Exiting")
                     exit(0)
             
-                    
     def start_agent(self):
         print('SHARP AUTO AGENT : Started !')
-              
         self.load_info()
-
         self.connect()
-
         self.init_automators()
-        
         self.subscribe()
-
         sleep(5)
         self.start_loop()

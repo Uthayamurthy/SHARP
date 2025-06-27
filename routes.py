@@ -106,15 +106,19 @@ def automations():
     with open('data/automations.json', 'r') as am_file:
         automations_data = json.load(am_file)
     
-    for location, device in devices_info.items():
-        for device_name, actionable in device.items():
+    for location, devices in devices_info.items():
+        for device_name, device_info in devices.items():
             formatted_name = f'{location}::{device_name}'
             devices_list.append(formatted_name)
-            for actionable_name, info in actionable.items():
-                if formatted_name not in actionables_list:
-                    actionables_list[formatted_name] = [actionable_name]
-                else:
-                    actionables_list[formatted_name].append(actionable_name)
+            
+            actionables_for_device = []
+            for actionable_name, info in device_info.items():
+                # An item is an actionable if its value is a dictionary and it has an action_topic
+                if isinstance(info, dict) and 'action_topic' in info:
+                    actionables_for_device.append(actionable_name)
+            
+            if actionables_for_device:
+                actionables_list[formatted_name] = actionables_for_device
 
     return render_template('automations.html', devices=devices_list, actionables=actionables_list, automations=automations_data)
 
@@ -128,12 +132,32 @@ def new_automation():
     location, device = request.form.get('device_detail').split('::')
     actionable = request.form.get('actionable')
     auto_type = request.form.get('automation_type')
-    start_time = request.form.get('start_time')
-    end_time = request.form.get('end_time')
+
+    auto_params = {}
+    if auto_type == 'TIME-SCHEDULED':
+        auto_params = {
+            'start_time': request.form.get('start_time'),
+            'end_time': request.form.get('end_time')
+        }
+    elif auto_type == 'SUNLIGHT-TRIGGERED':
+        auto_params = {
+            'start': {
+                'type': request.form.get('start_trigger_type'),
+                'value': request.form.get('start_trigger_value') or None
+            },
+            'end': {
+                'type': request.form.get('end_trigger_type'),
+                'value': request.form.get('end_trigger_value') or None
+            }
+        }
+
+    if not auto_params:
+        flash('Invalid automation type submitted.', 'danger')
+        return redirect(url_for('main.automations'))
 
     automations_data[automation_name] = {
         'enabled': True, 'location': location, 'device': device, 'actionable': actionable,
-        'AUTO_TYPE': auto_type, 'AUTO_PARAMS': {'start_time': start_time, 'end_time': end_time}
+        'AUTO_TYPE': auto_type, 'AUTO_PARAMS': auto_params
     }
     with open('data/automations.json', 'w') as am_file:
         json.dump(automations_data, am_file, indent=4)

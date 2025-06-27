@@ -15,4 +15,5 @@ dependencies = [
     "flask-wtf>=1.2.2",
     "gunicorn>=23.0.0",
     "pillow>=11.2.1",
+    "requests>=2.32.4",
 ]
