@@ -66,3 +66,5 @@ config/
 
 # Data files
 data/
+
+instance/

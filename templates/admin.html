@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% set active_page = "admin" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block heading %}
+<div class="container-md my-2 py-2 text-center">
+    <h1 class="display-3"><i class="bi bi-shield-lock-fill"></i> Admin Dashboard</h1>
+</div>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>User Management</h2>
+        <a href="{{ url_for('main.create_user') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Create New User</a>
+    </div>
+
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td><span class="badge text-bg-{% if user.role == 'Admin' %}danger{% else %}secondary{% endif %}">{{ user.role }}</span></td>
+                <td>
+                    <!-- Future actions like edit/delete can be added here -->
+                    <button class="btn btn-sm btn-outline-primary" disabled>Edit</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

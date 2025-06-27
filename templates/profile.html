@@ -1,0 +1,83 @@
+<!-- SHARP-2.0/templates/profile.html -->
+{% extends "layout.html" %}
+{% set active_page = "profile" %}
+{% block title %}Profile{% endblock %}
+
+{% block heading %}
+<div class="container-md my-2 py-2 text-center">
+    <h1 class="display-3"><i class="bi bi-person-circle"></i>  Profile</h1>
+</div>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="row">
+        <!-- Profile Info -->
+        <div class="col-md-4 text-center">
+            <img class="rounded-circle account-img mb-3" style="width: 150px; height: 150px; object-fit: cover;" src="{{ image_file }}">
+            <h3>{{ current_user.username }}</h3>
+            <p class="text-secondary">{{ current_user.email }}</p>
+            <p><span class="badge text-bg-info">{{ current_user.role }} User</span></p>
+        </div>
+        <!-- Update Forms -->
+        <div class="col-md-8">
+            <!-- Update Profile Info Form -->
+            <div class="card mb-4">
+                <div class="card-header">Update Profile Information</div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('main.profile') }}" enctype="multipart/form-data">
+                        {{ update_form.hidden_tag() }}
+                        <div class="mb-3">
+                            {{ update_form.username.label(class="form-label") }}
+                            {{ update_form.username(class="form-control") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ update_form.email.label(class="form-label") }}
+                            {{ update_form.email(class="form-control") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ update_form.picture.label(class="form-label") }}
+                            {{ update_form.picture(class="form-control") }}
+                            {% if update_form.picture.errors %}
+                                {% for error in update_form.picture.errors %}
+                                    <span class="text-danger">{{ error }}</span>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        {{ update_form.submit(class="btn btn-primary") }}
+                    </form>
+                </div>
+            </div>
+
+            <!-- Change Password Form -->
+            <div class="card">
+                <div class="card-header">Change Password</div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('main.change_password') }}">
+                        {{ password_form.hidden_tag() }}
+                        <div class="mb-3">
+                            {{ password_form.password.label(class="form-label") }}
+                            <div class="input-group">
+                                {{ password_form.password(class="form-control") }}
+                                <button class="btn btn-outline-secondary toggle-password-vis" type="button">
+                                    <i class="bi bi-eye-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            {{ password_form.confirm_password.label(class="form-label") }}
+                             <div class="input-group">
+                                {{ password_form.confirm_password(class="form-control") }}
+                                <button class="btn btn-outline-secondary toggle-password-vis" type="button">
+                                    <i class="bi bi-eye-fill"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {{ password_form.submit(class="btn btn-warning") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
