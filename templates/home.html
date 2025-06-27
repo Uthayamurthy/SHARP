@@ -47,9 +47,8 @@ Contact Author : uthayamurthy2006@gmail.com
                             <div class="row">
                                 <h4 class="h4">{{ device }}</h4>
                             </div>
-                            <div class="row justify-content-center my-4">
+                            <div class="d-flex flex-wrap justify-content-center align-items-center gap-3 my-4">
                                 {% for name, info in actionable.items() %}
-                                <div class="col-3 col-md-2 align-self-center m-3 p-2">
                                     {% if info['state'] == 'on' -%}
                                         {% set btn_color='success' %}
                                         {% set btn_value='off' %}
@@ -61,7 +60,6 @@ Contact Author : uthayamurthy2006@gmail.com
                                         {% set btn_value='on' %}
                                     {% endif %}
                                     <button id="{{ location }}-{{ device }}-{{ name }}" class="btn btn-{{ btn_color }} btn-lg" value="{{ btn_value }}"><i class="bi bi-{{ info['icon'] }}"></i><br>{{ name | dashless }}</button>
-                                </div>
                                 {% endfor %}     
                             </div>
                         {% endfor %}
