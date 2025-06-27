@@ -4,7 +4,7 @@ from wtforms import StringField, PasswordField, SubmitField, BooleanField, Selec
 from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError
 from models import User
 from flask_login import current_user
-
+from extensions import bcrypt
 class LoginForm(FlaskForm):
     username_or_email = StringField('Email or Username', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
@@ -51,3 +51,46 @@ class CreateUserForm(FlaskForm):
         user = User.query.filter_by(email=email.data).first()
         if user:
             raise ValidationError('That email is already in use.')
+
+class AdminConfirmPasswordForm(FlaskForm):
+    admin_password = PasswordField(
+        'Your Admin Password',
+        validators=[DataRequired(message="Your password is required for this action.")]
+    )
+
+    def validate_admin_password(self, admin_password):
+        if not bcrypt.check_password_hash(current_user.password_hash, admin_password.data):
+            raise ValidationError('Incorrect password. This action was not authorized.')
+
+class AdminUpdateUserForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=2, max=20)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    submit = SubmitField('Update Details')
+
+    def __init__(self, user_to_edit, *args, **kwargs):
+        super(AdminUpdateUserForm, self).__init__(*args, **kwargs)
+        self.user_to_edit = user_to_edit
+
+    def validate_username(self, username):
+        if username.data != self.user_to_edit.username:
+            user = User.query.filter_by(username=username.data).first()
+            if user:
+                raise ValidationError('That username is already in use.')
+
+    def validate_email(self, email):
+        if email.data != self.user_to_edit.email:
+            user = User.query.filter_by(email=email.data).first()
+            if user:
+                raise ValidationError('That email is already in use.')
+
+class AdminChangePasswordForm(FlaskForm):
+    password = PasswordField('New Password', validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Confirm New Password', validators=[DataRequired(), EqualTo('password')])
+    submit = SubmitField('Change Password')
+
+class AdminUpdateRoleForm(AdminConfirmPasswordForm):
+    role = SelectField('Role', choices=[('Regular', 'Regular'), ('Admin', 'Admin')], validators=[DataRequired()])
+    submit = SubmitField('Update Role')
+
+class AdminDeleteUserForm(AdminConfirmPasswordForm):
+    submit = SubmitField('Yes, Delete This User')

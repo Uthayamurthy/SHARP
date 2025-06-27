@@ -34,12 +34,17 @@
                     <td>{{ user.email }}</td>
                     <td><span class="badge text-bg-{% if user.role == 'Admin' %}danger{% else %}secondary{% endif %}">{{ user.role }}</span></td>
                     <td>
-                        <!-- Future actions like edit/delete can be added here -->
-                        <button class="btn btn-sm btn-outline-primary" disabled>Edit</button>
+                        <!-- CHANGE: Enable button and add logic to disable for self-editing -->
+                        {% if user == current_user %}
+                            <a href="#" class="btn btn-sm btn-outline-secondary disabled" title="Use Profile page to edit yourself">Edit</a>
+                        {% else %}
+                            <a href="{{ url_for('main.edit_user', user_id=user.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+</div>
 {% endblock %}
