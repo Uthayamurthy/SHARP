@@ -57,7 +57,7 @@ Contact Author : uthayamurthy2006@gmail.com
                 </div>
                 <div class="form-group mb-3">
                     <label for="selectActionable" class="h6 form-label"><i class="bi bi-lightning-charge-fill"></i> Actionable</label>
-                    <select required class="form-select form-control" id="selectActionable" name="actionable">
+                    <select  required class="form-select form-control" id="selectActionable" name="actionable">
                         <option selected disabled value="">Select Actionable</option>
                     </select>
                 </div>
@@ -66,34 +66,46 @@ Contact Author : uthayamurthy2006@gmail.com
                     <select required class="form-select form-control" id="selectAutomationType" name="automation_type">
                         <option selected disabled value="">Choose Type...</option>
                         <option value="TIME-SCHEDULED">Time Scheduled</option>
-                        <option value="SUNLIGHT-TRIGGERED">Sunlight Triggered</option>
-                        <option value="SMART-REPETITION">Smart Repetition</option>
+                        <option value="SUNLIGHT-TRIGGERED">Sunlight Triggered</option> <!-- NEW OPTION -->
                     </select>
                 </div>
                 
                 <!-- Time Scheduled Parameters -->
                 <div id="time-scheduled-params" class="d-none">
-                    <div class="form-group mb-3"><label class="h6 form-label"><i class="bi bi-clock-fill"></i> Start Time</label><input class="form-control" name="start_time" type="time"></div>
-                    <div class="form-group mb-3"><label class="h6 form-label"><i class="bi bi-clock-fill"></i> End Time</label><input class="form-control" name="end_time" type="time"></div>
+                    <div class="form-group mb-3">
+                        <label for="startTime" class="h6 form-label"><i class="bi bi-clock-fill"></i> Start Time</label>
+                        <input class="form-control" name="start_time" id="startTime" type="time">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="endTime" class="h6 form-label"><i class="bi bi-clock-fill"></i> End Time</label>
+                        <input class="form-control" name="end_time" id="endTime" type="time">
+                    </div>
                 </div>
 
                 <!-- Sunlight Triggered Parameters -->
                 <div id="sunlight-triggered-params" class="d-none">
-                    <div class="border p-2 mb-3 rounded"><label class="h6 form-label">Start Trigger</label><select class="form-select trigger-type-select mb-2" name="start_trigger_type"><option value="Sunrise">Sunrise</option><option value="Sunset">Sunset</option><option value="Time">Specific Time</option></select><input type="time" class="form-control trigger-value-input d-none" name="start_trigger_value"></div>
-                    <div class="border p-2 mb-3 rounded"><label class="h6 form-label">End Trigger</label><select class="form-select trigger-type-select mb-2" name="end_trigger_type"><option value="Sunset">Sunset</option><option value="Sunrise">Sunrise</option><option value="Time">Specific Time</option></select><input type="time" class="form-control trigger-value-input d-none" name="end_trigger_value"></div>
+                    <!-- Start Trigger -->
+                    <div class="border p-2 mb-3 rounded">
+                        <label class="h6 form-label">Start Trigger</label>
+                        <select class="form-select trigger-type-select mb-2" name="start_trigger_type">
+                            <option value="Sunrise">Sunrise</option>
+                            <option value="Sunset">Sunset</option>
+                            <option value="Time">Specific Time</option>
+                        </select>
+                        <input type="time" class="form-control trigger-value-input d-none" name="start_trigger_value">
+                    </div>
+                    <!-- End Trigger -->
+                    <div class="border p-2 mb-3 rounded">
+                         <label class="h6 form-label">End Trigger</label>
+                        <select class="form-select trigger-type-select mb-2" name="end_trigger_type">
+                            <option value="Sunset">Sunset</option>
+                            <option value="Sunrise">Sunrise</option>
+                            <option value="Time">Specific Time</option>
+                        </select>
+                        <input type="time" class="form-control trigger-value-input d-none" name="end_trigger_value">
+                    </div>
                 </div>
                 
-                <!-- Smart Repetition Parameters -->
-                <div id="smart-repetition-params" class="d-none">
-                    <div class="form-group mb-3"><label class="h6 form-label">Cycle Duration (minutes)</label><input type="number" class="form-control" name="duration_minutes" min="1" value="10"></div>
-                    <div class="form-group mb-3"><label class="h6 form-label">Minimum Successful Cycles</label><input type="number" class="form-control" name="min_repetitions" min="1" value="1"></div>
-                    <hr>
-                    <h6>Feasible Time Windows</h6>
-                    <div id="repetition-windows-container"></div>
-                    <button type="button" class="btn btn-sm btn-outline-info" id="add-repetition-window"><i class="bi bi-plus-circle"></i> Add Window</button>
-                </div>
-
-                <hr>
                 <button class="btn btn-outline-success" type="submit">Create</button>
             </form>
         </div>
@@ -102,8 +114,12 @@ Contact Author : uthayamurthy2006@gmail.com
     <div class="container-md">
         {% for am_name, am_info in automations.items() %}
         <div class="card mb-4">
+
             <div class="card-header d-md-flex justify-content-md-between align-items-md-center">
-                <h5 class="mb-0"><i class="bi bi-stars"></i> {{ am_name | dashless }}{% if not am_info['enabled'] %}<span class="badge bg-secondary ms-2">Paused</span>{% endif %}</h5>
+                <h5 class="mb-0">
+                    <i class="bi bi-stars"></i> {{ am_name | dashless }}
+                    {% if not am_info['enabled'] %}<span class="badge bg-secondary ms-2">Paused</span>{% endif %}
+                </h5>
                 <span class="badge text-bg-info mt-2 mt-md-0">{{ am_info['AUTO_TYPE'].replace('-', ' ') }}</span>
             </div>
 
@@ -119,50 +135,81 @@ Contact Author : uthayamurthy2006@gmail.com
                             <p class="mb-1"><strong><i class="bi bi-clock-fill"></i> Start:</strong> <span class="text-success">{{ am_info['AUTO_PARAMS']['start_time'] | format_time }}</span></p>
                             <p class="mb-0"><strong><i class="bi bi-clock-fill"></i> End:</strong> <span class="text-danger">{{ am_info['AUTO_PARAMS']['end_time'] | format_time }}</span></p>
                         {% elif am_info['AUTO_TYPE'] == 'SUNLIGHT-TRIGGERED' %}
-                            <p class="mb-1"><strong><i class="bi bi-clock-fill"></i> Start:</strong> <span class="text-success">{{ am_info.AUTO_PARAMS.start.type }}{% if am_info.AUTO_PARAMS.start.type == 'Time' %} ({{ am_info.AUTO_PARAMS.start.value | format_time }}){% endif %}</span></p>
-                            <p class="mb-0"><strong><i class="bi bi-clock-fill"></i> End:</strong> <span class="text-danger">{{ am_info.AUTO_PARAMS.end.type }}{% if am_info.AUTO_PARAMS.end.type == 'Time' %} ({{ am_info.AUTO_PARAMS.end.value | format_time }}){% endif %}</span></p>
-                        {% elif am_info['AUTO_TYPE'] == 'SMART-REPETITION' %}
-                            <p class="mb-1"><strong>Duration:</strong> {{ am_info.AUTO_PARAMS.duration_minutes }} min</p>
-                            <p class="mb-1"><strong>Target/Min Cycles:</strong> {{ am_info.AUTO_PARAMS.repetitions | length }} / {{ am_info.AUTO_PARAMS.min_repetitions }}</p>
-                            <p class="mb-0"><strong>Time Windows:</strong> {{ am_info.AUTO_PARAMS.repetitions | length }} defined</p>
+                            {% set start_type = am_info.AUTO_PARAMS.start.type %}
+                            {% set start_val = am_info.AUTO_PARAMS.start.value %}
+                            <p class="mb-1"><strong><i class="bi bi-clock-fill"></i> Start:</strong> 
+                                <span class="text-success">
+                                    {{ start_type }}
+                                    {% if start_type == 'Time' %} ({{ start_val | format_time }}){% endif %}
+                                </span>
+                            </p>
+                            {% set end_type = am_info.AUTO_PARAMS.end.type %}
+                            {% set end_val = am_info.AUTO_PARAMS.end.value %}
+                             <p class="mb-0"><strong><i class="bi bi-clock-fill"></i> End:</strong> 
+                                <span class="text-danger">
+                                    {{ end_type }}
+                                    {% if end_type == 'Time' %} ({{ end_val | format_time }}){% endif %}
+                                </span>
+                            </p>
                         {% endif %}
                     </div>
                 </div>
             </div>
             <div class="card-footer text-end">
-                {% if am_info['AUTO_TYPE'] == 'SMART-REPETITION' %}
-                <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#infoModal-{{ am_name }}" data-automation-name="{{ am_name }}">
-                    <i class="bi bi-info-circle-fill"></i> Info
-                </button>
-                {% endif %}
                 <form action="/toggle-automation" method="post" class="d-inline">
-                    {% if am_info['enabled'] %}<button type="submit" name="toggle_am_name" value="{{ am_name }}--pause" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pause-circle-fill"></i> Pause</button>
-                    {% else %}<button type="submit" name="toggle_am_name" value="{{ am_name }}--resume" class="btn btn-sm btn-outline-primary"><i class="bi bi-play-circle-fill"></i> Resume</button>{% endif %}
+                    {% if am_info['enabled'] %}
+                        <button type="submit" name="toggle_am_name" value="{{ am_name }}--pause" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pause-circle-fill"></i> Pause
+                        </button>
+                    {% else %}
+                        <button type="submit" name="toggle_am_name" value="{{ am_name }}--resume" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-play-circle-fill"></i> Resume
+                        </button>
+                    {% endif %}
                 </form>
-                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ am_name }}"><i class="bi bi-trash-fill"></i> Delete</button>
+                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ am_name.replace(' ', '_') }}">
+                    <i class="bi bi-trash-fill"></i> Delete
+                </button>
             </div>
         </div>
-
-        <!-- Delete Modal -->
-        <div class="modal fade" id="deleteModal-{{ am_name }}" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Confirm Deletion</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body">Are you sure you want to delete '<strong>{{ am_name | dashless }}</strong>'?</div><div class="modal-footer"><form action="/delete-automation" method="post"><input type="hidden" name="delete_am_name" value="{{ am_name }}"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-danger">Delete</button></form></div></div></div></div>
-        
-        <!-- Info Modal (for Smart Repetition) -->
-        {% if am_info['AUTO_TYPE'] == 'SMART-REPETITION' %}
-        <div class="modal fade" id="infoModal-{{ am_name }}" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title"><i class="bi bi-activity"></i> Daily Status: {{ am_name | dashless }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body" id="info-modal-body-{{ am_name }}"><div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div></div></div></div>
-        {% endif %}
-
+        <div class="modal fade" id="deleteModal-{{ am_name.replace(' ', '_') }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ am_name.replace(' ', '_') }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteModalLabel-{{ am_name.replace(' ', '_') }}">Confirm Deletion</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        Are you sure you want to delete the automation '<strong>{{ am_name | dashless }}</strong>'? This action cannot be undone.
+                    </div>
+                    <div class="modal-footer">
+                        <form action="/delete-automation" method="post">
+                            <input type="hidden" name="delete_am_name" value="{{ am_name }}">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-danger">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% endfor %}
       </div>
     </div>
 
+    <!-- SCRIPT SECTION -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const actionables = {{ actionables | tojson | safe }};
+            // Actionable dropdown logic (no changes)
+            const actionables = {{ actionables | tojson | safe}};
             const selectDevice = document.getElementById('selectDevice');
             const selectActionable = document.getElementById('selectActionable');
+
             selectDevice.addEventListener('change', function () {
-                const options = actionables[this.value] || [];
+                const selectedDevice = this.value;
+                const options = actionables[selectedDevice] || [];
+                
                 selectActionable.innerHTML = '<option selected disabled value="">Choose...</option>';
+                
                 options.forEach(function (actionable) {
                     const option = document.createElement('option');
                     option.value = actionable;
@@ -171,104 +218,49 @@ Contact Author : uthayamurthy2006@gmail.com
                 });
             });
 
+            // --- NEW SCRIPT FOR DYNAMIC FORM ---
             const selectAutomationType = document.getElementById('selectAutomationType');
-            const paramDivs = {
-                'TIME-SCHEDULED': document.getElementById('time-scheduled-params'),
-                'SUNLIGHT-TRIGGERED': document.getElementById('sunlight-triggered-params'),
-                'SMART-REPETITION': document.getElementById('smart-repetition-params')
-            };
+            const timeParamsDiv = document.getElementById('time-scheduled-params');
+            const sunParamsDiv = document.getElementById('sunlight-triggered-params');
 
             selectAutomationType.addEventListener('change', function() {
-                Object.values(paramDivs).forEach(div => {
-                    div.classList.add('d-none');
-                    div.querySelectorAll('input, select').forEach(i => i.required = false);
-                });
-                const selectedDiv = paramDivs[this.value];
-                if (selectedDiv) {
-                    selectedDiv.classList.remove('d-none');
-                    selectedDiv.querySelectorAll('input, select').forEach(i => {
-                        if (!i.closest('.d-none')) i.required = true;
-                    });
+                // Hide all parameter blocks first
+                timeParamsDiv.classList.add('d-none');
+                sunParamsDiv.classList.add('d-none');
+
+                // Disable all inputs inside them
+                timeParamsDiv.querySelectorAll('input').forEach(i => i.required = false);
+                sunParamsDiv.querySelectorAll('input, select').forEach(i => i.required = false);
+
+
+                if (this.value === 'TIME-SCHEDULED') {
+                    timeParamsDiv.classList.remove('d-none');
+                    timeParamsDiv.querySelectorAll('input').forEach(i => i.required = true);
+                } else if (this.value === 'SUNLIGHT-TRIGGERED') {
+                    sunParamsDiv.classList.remove('d-none');
+                    sunParamsDiv.querySelectorAll('.trigger-type-select').forEach(s => s.required = true);
+                    // Handle initial state of time inputs
+                    document.querySelectorAll('.trigger-type-select').forEach(updateTimeInputVisibility);
                 }
             });
+
+            function updateTimeInputVisibility(selectElement) {
+                const parentDiv = selectElement.closest('div');
+                const timeInput = parentDiv.querySelector('.trigger-value-input');
+                if (selectElement.value === 'Time') {
+                    timeInput.classList.remove('d-none');
+                    timeInput.required = true;
+                } else {
+                    timeInput.classList.add('d-none');
+                    timeInput.required = false;
+                    timeInput.value = '';
+                }
+            }
 
             document.querySelectorAll('.trigger-type-select').forEach(select => {
-                select.addEventListener('change', (e) => {
-                    const timeInput = e.target.parentElement.querySelector('.trigger-value-input');
-                    if (e.target.value === 'Time') {
-                        timeInput.classList.remove('d-none');
-                        timeInput.required = true;
-                    } else {
-                        timeInput.classList.add('d-none');
-                        timeInput.required = false;
-                    }
-                });
-            });
-
-            // Smart Repetition Form Logic
-            const windowsContainer = document.getElementById('repetition-windows-container');
-            let windowIndex = 0;
-            document.getElementById('add-repetition-window').addEventListener('click', function() {
-                const newWindow = document.createElement('div');
-                newWindow.className = 'input-group mb-2';
-                newWindow.innerHTML = `
-                    <input type="time" name="repetition_start_${windowIndex}" class="form-control" required>
-                    <span class="input-group-text">to</span>
-                    <input type="time" name="repetition_end_${windowIndex}" class="form-control" required>
-                    <button type="button" class="btn btn-outline-danger remove-window-btn"><i class="bi bi-trash"></i></button>`;
-                windowsContainer.appendChild(newWindow);
-                windowIndex++;
-            });
-            windowsContainer.addEventListener('click', function(e) {
-                if (e.target.closest('.remove-window-btn')) {
-                    e.target.closest('.input-group').remove();
-                }
-            });
-
-            // Info Modal Logic
-            document.querySelectorAll('[id^=infoModal-]').forEach(modal => {
-                modal.addEventListener('show.bs.modal', function (event) {
-                    const button = event.relatedTarget;
-                    const automationName = button.getAttribute('data-automation-name');
-                    const modalBody = document.getElementById(`info-modal-body-${automationName}`);
-                    
-                    modalBody.innerHTML = '<div class="text-center"><div class="spinner-border text-primary"></div></div>';
-
-                    fetch(`/automation-status/${automationName}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'NOT_STARTED') {
-                                modalBody.innerHTML = `<p class="text-center text-muted">${data.message}</p>`;
-                                return;
-                            }
-                            let content = `
-                                <div class="row text-center mb-3">
-                                    <div class="col"><strong>Status:</strong> <span class="badge text-bg-primary">${data.overall_status}</span></div>
-                                    <div class="col"><strong>Progress:</strong> <span class="badge text-bg-success">${data.successful_runs} / ${data.config.min_repetitions} (Min)</span></div>
-                                    <div class="col"><strong>Target:</strong> <span class="badge text-bg-info">${data.config.repetitions.length} Cycles</span></div>
-                                </div>
-                                <table class="table table-sm table-bordered">
-                                    <thead class="table-light"><tr><th>Window</th><th>Feasible Time</th><th>Status</th><th>Attempts</th><th>Last Attempt</th><th>Completed</th></tr></thead>
-                                    <tbody>`;
-                            data.tasks.forEach(task => {
-                                const config = data.config.repetitions[task.index];
-                                content += `<tr>
-                                    <td>${task.index + 1}</td>
-                                    <td>${config.feasible_start} - ${config.feasible_end}</td>
-                                    <td><span class="badge text-bg-${task.status === 'SUCCESS' ? 'success' : (task.status === 'FAILED' ? 'danger' : 'secondary')}">${task.status}</span></td>
-                                    <td>${task.attempts}</td>
-                                    <td>${task.last_attempt}</td>
-                                    <td>${task.completed_at}</td>
-                                </tr>`;
-                            });
-                            content += `</tbody></table>`;
-                            modalBody.innerHTML = content;
-                        })
-                        .catch(error => {
-                            modalBody.innerHTML = `<p class="text-center text-danger">Error loading status: ${error}</p>`;
-                        });
-                });
+                select.addEventListener('change', (e) => updateTimeInputVisibility(e.target));
             });
         });
     </script>
+
 {% endblock %}
