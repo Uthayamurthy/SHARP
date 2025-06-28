@@ -41,7 +41,7 @@ Contact Author : uthayamurthy2006@gmail.com
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body justify-content-center">
-            <form action="/new-automation" method="post" id="newAutomationForm">
+            <form action="{{ url_for('main.new_automation') }}" method="post" id="newAutomationForm">
                 <div class="form-group mb-3">
                     <label for="automationName" class="h6 form-label"><i class="bi bi-alphabet"></i> Automation Name</label>
                     <input required class="form-control" name="automation_name" id="automationName" placeholder="Eg: Evening Lights" type="text">
@@ -71,7 +71,7 @@ Contact Author : uthayamurthy2006@gmail.com
                 </div>
                 
                 <!-- Time Scheduled Parameters -->
-                <div id="time-scheduled-params" class="d-none">
+                <div id="time-scheduled-params" class="d-none time-scheduled-params">
                     <div class="form-group mb-3">
                         <label for="startTime" class="h6 form-label"><i class="bi bi-clock-fill"></i> Start Time</label>
                         <input class="form-control" name="start_time" id="startTime" type="time">
@@ -83,7 +83,7 @@ Contact Author : uthayamurthy2006@gmail.com
                 </div>
 
                 <!-- Sunlight Triggered Parameters -->
-                <div id="sunlight-triggered-params" class="d-none">
+                <div id="sunlight-triggered-params" class="d-none sunlight-triggered-params">
                     <!-- Start Trigger -->
                     <div class="border p-2 mb-3 rounded">
                         <label class="h6 form-label">Start Trigger</label>
@@ -167,11 +167,102 @@ Contact Author : uthayamurthy2006@gmail.com
                         </button>
                     {% endif %}
                 </form>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editModal-{{ am_name.replace(' ', '_') }}">
+                    <i class="bi bi-pencil-square"></i> Edit
+                </button>
                 <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ am_name.replace(' ', '_') }}">
                     <i class="bi bi-trash-fill"></i> Delete
                 </button>
             </div>
         </div>
+
+        <!-- Edit Modal -->
+        <div class="modal fade" id="editModal-{{ am_name.replace(' ', '_') }}" tabindex="-1" aria-labelledby="editModalLabel-{{ am_name.replace(' ', '_') }}" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <form action="{{ url_for('main.edit_automation') }}" method="post" class="editAutomationForm">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="editModalLabel-{{ am_name.replace(' ', '_') }}">Edit Automation: {{ am_name | dashless }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" name="original_automation_name" value="{{ am_name }}">
+                            
+                            <div class="form-group mb-3">
+                                <label class="h6 form-label">Automation Name</label>
+                                <input required class="form-control" name="automation_name" value="{{ am_name }}" type="text">
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <label class="h6 form-label">Device</label>
+                                <select required class="form-select form-control edit-selectDevice" name="device_detail">
+                                    {% set current_device = am_info['location'] ~ '::' ~ am_info['device'] %}
+                                    {% for device in devices %}
+                                        <option value="{{ device }}" {% if device == current_device %}selected{% endif %}>{{ device }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label class="h6 form-label">Actionable</label>
+                                <select required class="form-select form-control edit-selectActionable" name="actionable" data-selected="{{ am_info.actionable }}">
+                                </select>
+                            </div>
+
+                            <div class="form-group mb-3">
+                                <label class="h6 form-label">Automation Type</label>
+                                <select required class="form-select form-control edit-selectAutomationType" name="automation_type">
+                                    <option value="TIME-SCHEDULED" {% if am_info['AUTO_TYPE'] == 'TIME-SCHEDULED' %}selected{% endif %}>Time Scheduled</option>
+                                    <option value="SUNLIGHT-TRIGGERED" {% if am_info['AUTO_TYPE'] == 'SUNLIGHT-TRIGGERED' %}selected{% endif %}>Sunlight Triggered</option>
+                                </select>
+                            </div>
+
+                            <div class="edit-time-scheduled-params {% if am_info['AUTO_TYPE'] != 'TIME-SCHEDULED' %}d-none{% endif %}">
+                                {% if am_info['AUTO_TYPE'] == 'TIME-SCHEDULED' %}
+                                <div class="form-group mb-3">
+                                    <label class="h6 form-label">Start Time</label>
+                                    <input class="form-control" name="start_time" value="{{ am_info.AUTO_PARAMS.start_time }}" type="time">
+                                </div>
+                                <div class="form-group mb-3">
+                                    <label class="h6 form-label">End Time</label>
+                                    <input class="form-control" name="end_time" value="{{ am_info.AUTO_PARAMS.end_time }}" type="time">
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="edit-sunlight-triggered-params {% if am_info['AUTO_TYPE'] != 'SUNLIGHT-TRIGGERED' %}d-none{% endif %}">
+                                {% if am_info['AUTO_TYPE'] == 'SUNLIGHT-TRIGGERED' %}
+                                <div class="border p-2 mb-3 rounded">
+                                    <label class="h6 form-label">Start Trigger</label>
+                                    <select class="form-select edit-trigger-type-select mb-2" name="start_trigger_type">
+                                        <option value="Sunrise" {% if am_info.AUTO_PARAMS.start.type == 'Sunrise' %}selected{% endif %}>Sunrise</option>
+                                        <option value="Sunset" {% if am_info.AUTO_PARAMS.start.type == 'Sunset' %}selected{% endif %}>Sunset</option>
+                                        <option value="Time" {% if am_info.AUTO_PARAMS.start.type == 'Time' %}selected{% endif %}>Specific Time</option>
+                                    </select>
+                                    <input type="time" class="form-control edit-trigger-value-input {% if am_info.AUTO_PARAMS.start.type != 'Time' %}d-none{% endif %}" name="start_trigger_value" value="{{ am_info.AUTO_PARAMS.start.value }}">
+                                </div>
+                                <div class="border p-2 mb-3 rounded">
+                                     <label class="h6 form-label">End Trigger</label>
+                                    <select class="form-select edit-trigger-type-select mb-2" name="end_trigger_type">
+                                        <option value="Sunset" {% if am_info.AUTO_PARAMS.end.type == 'Sunset' %}selected{% endif %}>Sunset</option>
+                                        <option value="Sunrise" {% if am_info.AUTO_PARAMS.end.type == 'Sunrise' %}selected{% endif %}>Sunrise</option>
+                                        <option value="Time" {% if am_info.AUTO_PARAMS.end.type == 'Time' %}selected{% endif %}>Specific Time</option>
+                                    </select>
+                                    <input type="time" class="form-control edit-trigger-value-input {% if am_info.AUTO_PARAMS.end.type != 'Time' %}d-none{% endif %}" name="end_trigger_value" value="{{ am_info.AUTO_PARAMS.end.value }}">
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Modal -->
         <div class="modal fade" id="deleteModal-{{ am_name.replace(' ', '_') }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ am_name.replace(' ', '_') }}" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -199,66 +290,87 @@ Contact Author : uthayamurthy2006@gmail.com
     <!-- SCRIPT SECTION -->
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Actionable dropdown logic (no changes)
             const actionables = {{ actionables | tojson | safe}};
-            const selectDevice = document.getElementById('selectDevice');
-            const selectActionable = document.getElementById('selectActionable');
 
-            selectDevice.addEventListener('change', function () {
-                const selectedDevice = this.value;
+            function populateActionables(deviceSelect, actionableSelect, selectedActionable = null) {
+                const selectedDevice = deviceSelect.value;
                 const options = actionables[selectedDevice] || [];
                 
-                selectActionable.innerHTML = '<option selected disabled value="">Choose...</option>';
+                actionableSelect.innerHTML = '<option disabled value="">Choose...</option>';
                 
                 options.forEach(function (actionable) {
                     const option = document.createElement('option');
                     option.value = actionable;
-                    option.textContent = actionable;
-                    selectActionable.appendChild(option);
+                    option.textContent = actionable.replace(/-/g, ' ');
+                    if (actionable === selectedActionable) {
+                        option.selected = true;
+                    }
+                    actionableSelect.appendChild(option);
                 });
-            });
+            }
 
-            // --- NEW SCRIPT FOR DYNAMIC FORM ---
-            const selectAutomationType = document.getElementById('selectAutomationType');
-            const timeParamsDiv = document.getElementById('time-scheduled-params');
-            const sunParamsDiv = document.getElementById('sunlight-triggered-params');
+            function handleAutomationTypeChange(typeSelect) {
+                const form = typeSelect.closest('form, .offcanvas-body');
+                const timeParamsDiv = form.querySelector('.time-scheduled-params, .edit-time-scheduled-params');
+                const sunParamsDiv = form.querySelector('.sunlight-triggered-params, .edit-sunlight-triggered-params');
 
-            selectAutomationType.addEventListener('change', function() {
-                // Hide all parameter blocks first
                 timeParamsDiv.classList.add('d-none');
                 sunParamsDiv.classList.add('d-none');
 
-                // Disable all inputs inside them
                 timeParamsDiv.querySelectorAll('input').forEach(i => i.required = false);
-                sunParamsDiv.querySelectorAll('input, select').forEach(i => i.required = false);
+                sunParamsDiv.querySelectorAll('select, input').forEach(i => i.required = false);
 
-
-                if (this.value === 'TIME-SCHEDULED') {
+                if (typeSelect.value === 'TIME-SCHEDULED') {
                     timeParamsDiv.classList.remove('d-none');
                     timeParamsDiv.querySelectorAll('input').forEach(i => i.required = true);
-                } else if (this.value === 'SUNLIGHT-TRIGGERED') {
+                } else if (typeSelect.value === 'SUNLIGHT-TRIGGERED') {
                     sunParamsDiv.classList.remove('d-none');
-                    sunParamsDiv.querySelectorAll('.trigger-type-select').forEach(s => s.required = true);
-                    // Handle initial state of time inputs
-                    document.querySelectorAll('.trigger-type-select').forEach(updateTimeInputVisibility);
+                    sunParamsDiv.querySelectorAll('.trigger-type-select, .edit-trigger-type-select').forEach(s => s.required = true);
+                    form.querySelectorAll('.trigger-type-select, .edit-trigger-type-select').forEach(updateTimeInputVisibility);
                 }
-            });
-
+            }
+            
             function updateTimeInputVisibility(selectElement) {
-                const parentDiv = selectElement.closest('div');
-                const timeInput = parentDiv.querySelector('.trigger-value-input');
+                const parentDiv = selectElement.closest('.border');
+                const timeInput = parentDiv.querySelector('.trigger-value-input, .edit-trigger-value-input');
                 if (selectElement.value === 'Time') {
                     timeInput.classList.remove('d-none');
                     timeInput.required = true;
                 } else {
                     timeInput.classList.add('d-none');
                     timeInput.required = false;
-                    timeInput.value = '';
                 }
             }
 
-            document.querySelectorAll('.trigger-type-select').forEach(select => {
-                select.addEventListener('change', (e) => updateTimeInputVisibility(e.target));
+            // Setup for New Automation Form
+            const newAutomationForm = document.getElementById('newAutomationForm');
+            if (newAutomationForm) {
+                const selectDevice = newAutomationForm.querySelector('#selectDevice');
+                const selectActionable = newAutomationForm.querySelector('#selectActionable');
+                const selectAutomationType = newAutomationForm.querySelector('#selectAutomationType');
+                
+                selectDevice.addEventListener('change', () => populateActionables(selectDevice, selectActionable));
+                selectAutomationType.addEventListener('change', () => handleAutomationTypeChange(selectAutomationType));
+                newAutomationForm.querySelectorAll('.trigger-type-select').forEach(select => {
+                    select.addEventListener('change', (e) => updateTimeInputVisibility(e.target));
+                });
+            }
+
+            // Setup for ALL Edit Automation Modals
+            document.querySelectorAll('.editAutomationForm').forEach(form => {
+                const deviceSelect = form.querySelector('.edit-selectDevice');
+                const actionableSelect = form.querySelector('.edit-selectActionable');
+                const typeSelect = form.querySelector('.edit-selectAutomationType');
+                
+                const selectedActionable = actionableSelect.dataset.selected;
+                populateActionables(deviceSelect, actionableSelect, selectedActionable);
+
+                deviceSelect.addEventListener('change', () => populateActionables(deviceSelect, actionableSelect));
+                typeSelect.addEventListener('change', () => handleAutomationTypeChange(typeSelect));
+                form.querySelectorAll('.edit-trigger-type-select').forEach(select => {
+                    select.addEventListener('change', (e) => updateTimeInputVisibility(e.target));
+                    updateTimeInputVisibility(select); 
+                });
             });
         });
     </script>

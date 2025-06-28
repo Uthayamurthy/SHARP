@@ -201,6 +201,76 @@ def new_automation():
     flash(f'Automation: {automation_name} added successfully!', 'success')
     return redirect(url_for('main.automations'))
 
+@main_bp.route('/edit-automation', methods=['POST'])
+@login_required
+def edit_automation():
+    with open('data/automations.json', 'r') as am_file:
+        automations_data = json.load(am_file)
+
+    original_name = request.form.get('original_automation_name')
+    new_name = request.form.get('automation_name').strip().replace(' ', '-')
+    
+    if not original_name or original_name not in automations_data:
+        flash('Automation to edit not found.', 'danger')
+        return redirect(url_for('main.automations'))
+
+    if new_name != original_name and new_name in automations_data:
+        flash(f'An automation with the name "{new_name}" already exists.', 'danger')
+        return redirect(url_for('main.automations'))
+
+    location, device = request.form.get('device_detail').split('::')
+    actionable = request.form.get('actionable')
+    auto_type = request.form.get('automation_type')
+
+    auto_params = {}
+    if auto_type == 'TIME-SCHEDULED':
+        start_time = request.form.get('start_time')
+        end_time = request.form.get('end_time')
+        if not start_time or not end_time:
+            flash('Start and End times are required for Time Scheduled automation.', 'danger')
+            return redirect(url_for('main.automations'))
+        auto_params = {
+            'start_time': start_time,
+            'end_time': end_time
+        }
+    elif auto_type == 'SUNLIGHT-TRIGGERED':
+        auto_params = {
+            'start': {
+                'type': request.form.get('start_trigger_type'),
+                'value': request.form.get('start_trigger_value') or None
+            },
+            'end': {
+                'type': request.form.get('end_trigger_type'),
+                'value': request.form.get('end_trigger_value') or None
+            }
+        }
+        if not auto_params['start']['type'] or not auto_params['end']['type']:
+            flash('Start and End trigger types are required for Sunlight Triggered automation.', 'danger')
+            return redirect(url_for('main.automations'))
+
+    if not auto_params:
+        flash('Invalid automation type submitted.', 'danger')
+        return redirect(url_for('main.automations'))
+
+    updated_automation_data = {
+        'enabled': automations_data[original_name].get('enabled', True),
+        'location': location, 
+        'device': device, 
+        'actionable': actionable,
+        'AUTO_TYPE': auto_type, 
+        'AUTO_PARAMS': auto_params
+    }
+
+    del automations_data[original_name]
+    automations_data[new_name] = updated_automation_data
+
+    with open('data/automations.json', 'w') as am_file:
+        json.dump(automations_data, am_file, indent=4)
+    
+    current_app.config['AGENT_CONN'].send('RELOAD')
+    flash(f'Automation "{new_name}" updated successfully!', 'success')
+    return redirect(url_for('main.automations'))
+
 
 @main_bp.route('/delete-automation', methods=['POST'])
 @login_required
