@@ -19,7 +19,7 @@ S.H.A.R.P - Smart Home Automation Research Project
 Contact Author : uthayamurthy2006@gmail.com
 '''
 
-from flask import Flask
+from flask import Flask, current_app
 from flask_socketio import SocketIO
 from flask_mqtt import Mqtt
 from time import sleep
@@ -55,6 +55,8 @@ for location, devices in devices_info_data.items():
         device_info.setdefault('online_status', 'waiting')
         device_info.setdefault('last_seen', 0)
         device_info.setdefault('start_time', time.time())
+        device_info.setdefault('health_data', {})
+
 
 app.config['SECRET_KEY'] = flask_conf['SECRET_KEY']
 app.config['TEMPLATES_AUTO_RELOAD'] = flask_conf['TEMPLATES_AUTO_RELOAD']
@@ -109,10 +111,11 @@ def start_auto_agent():
 
 health_topic_map = {}
 ack_topic_map = {}
+config_status_topic_map = {}
 
 def mqtt_setup():
     """ Creates lookup maps and subscribes to all necessary MQTT topics. """
-    global health_topic_map, ack_topic_map
+    global health_topic_map, ack_topic_map, config_status_topic_map
     for location, devices in devices_info_data.items():
         for device_name, device_info in devices.items():
             if 'health_topic' in device_info:
@@ -122,6 +125,14 @@ def mqtt_setup():
                     'location': location, 'device_name': device_name, 'info': device_info
                 }
                 print(f"SHARP: Subscribed to health topic for {device_name}: {health_topic}")
+
+            if 'config_status_topic' in device_info:
+                config_topic = device_info['config_status_topic']
+                mqtt.subscribe(topic=config_topic)
+                config_status_topic_map[config_topic] = {
+                    'location': location, 'device_name': device_name
+                }
+                print(f"SHARP: Subscribed to config status topic for {device_name}: {config_topic}")
 
             for actionable_name, info in device_info.items():
                 if isinstance(info, dict) and 'ack_topic' in info:
@@ -169,6 +180,15 @@ def handle_mqtt_message(client, userdata, message):
             print(f"SHARP: Could not parse health message from {topic}: {e}")
         return
 
+    if topic in config_status_topic_map:
+        try:
+            status_data = json.loads(payload_str)
+            print(f"SHARP: Received config update status: {status_data}")
+            socketio.emit('config_update_status', status_data)
+        except json.JSONDecodeError as e:
+            print(f"SHARP: Could not parse config status from {topic}: {e}")
+        return
+
     if topic in ack_topic_map:
         context = ack_topic_map[topic]
         state = payload_str
@@ -202,6 +222,51 @@ def on_publish(data):
         state = data['state']
         sleep(0.1)
         mqtt.publish(topic, state, qos=1)
+
+@socketio.on('update_config')
+def handle_config_update(data):
+    from flask_login import current_user
+    if not current_user.is_authenticated:
+        return
+
+    location = data.get('location')
+    device_name = data.get('device')
+    section = data.get('section')
+    key = data.get('key')
+    value = data.get('value')
+    
+    print(f"SHARP: Received config update request from user for {device_name}: {section}.{key} = {value}")
+
+    try:
+        device_info = current_app.config['DEVICES_INFO'][location][device_name]
+        config_set_topic = device_info.get('config_set_topic')
+        
+        if not config_set_topic:
+            raise ValueError("Device does not have a config_set_topic.")
+
+        param_def = next((p for p in device_info.get('configurable_params', []) 
+                          if p['section'] == section and p['key'] == key), None)
+        
+        if not param_def:
+            raise ValueError(f"Parameter {section}.{key} is not defined as configurable.")
+
+        if param_def.get('type') == 'number':
+            processed_value = int(value)
+        else:
+            processed_value = str(value)
+
+        payload = {
+            "section": section,
+            "key": key,
+            "value": processed_value
+        }
+        
+        mqtt.publish(config_set_topic, json.dumps(payload), qos=1)
+        print(f"SHARP: Published config update to {config_set_topic}: {payload}")
+
+    except (KeyError, ValueError, TypeError) as e:
+        print(f"SHARP: Error processing config update: {e}")
+        socketio.emit('config_update_status', {'status': 'error', 'message': f'Server error: {e}'})
 
 def handle_sigterm(*args):
     print("SHARP: SIGTERM received, shutting down gracefully...")

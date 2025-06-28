@@ -32,31 +32,172 @@ Contact Author : uthayamurthy2006@gmail.com
 
 {% block body %}
 <hr>
-<div class="container-md my-2 py-2">
-    {% for location, devices in devices_info.items() %}
-        {% for device, actionable in devices.items() %}
-            <div class="row  border border-secondary p-3 m-3 justify-content-center">
-               
-                <div class="container-fluid">
-                    <div class="text-center">
-                        <span class="h1 m-3"> <i class="bi bi-gear"></i> {{ device }} </span>  
-                    </div>
-                    <div class="text-end">
-                        <span class="h3 text-muted m-3"> <i class="bi bi-geo-alt-fill"></i>  {{ location }} </span>  
+<div class="container my-4">
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for location, devices in devices_info.items() %}
+            {% for device_name, device_info in devices.items() %}
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-cpu-fill"></i> {{ device_name }}</h5>
+                            <span id="status-{{ location }}-{{ device_name }}" class="badge rounded-pill text-bg-secondary">Unknown</span>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="card-subtitle mb-2 text-muted"><i class="bi bi-geo-alt-fill"></i> {{ location }}</h6>
+                            <p class="card-text">
+                                <strong>Actionables:</strong>
+                                <ul class="list-unstyled ms-2">
+                                    {% for name, info in device_info.items() %}
+                                        {% if info is mapping and 'icon' in info %}
+                                            <li><i class="bi bi-{{ info['icon'] }}"></i> {{ name | dashless }}</li>
+                                        {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            </p>
+                        </div>
+                        <div class="card-footer text-end">
+                            {% if device_info.configurable_params %}
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#settingsModal-{{ location|replace(' ','-') }}-{{ device_name|replace(' ','-') }}">
+                                <i class="bi bi-sliders"></i> Settings
+                            </button>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
 
-      
-            <div class="container-fluid text-center">
-                <h3 class="h4 m-3"><i class="bi bi-lightning-charge-fill"></i> Actionables </h3>
-                {% for name, info in actionable.items() %}
-                    {% if info is mapping and 'icon' in info %}
-                        <span class="m-3"> <i class="bi bi-{{ info['icon'] }}"></i> {{ name | dashless }}</span>
-                    {% endif %}
-                {%  endfor %}
+                <!-- Settings Modal -->
+                {% if device_info.configurable_params %}
+                <div class="modal fade" id="settingsModal-{{ location|replace(' ','-') }}-{{ device_name|replace(' ','-') }}" tabindex="-1" aria-labelledby="settingsModalLabel-{{ device_name }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="settingsModalLabel-{{ device_name }}"><i class="bi bi-sliders"></i> {{ device_name }} Settings</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form class="config-form" data-location="{{ location }}" data-device="{{ device_name }}">
+                                    {% for param in device_info.configurable_params %}
+                                    <div class="mb-3">
+                                        <label for="param-{{ location }}-{{ device_name }}-{{ param.key }}" class="form-label">{{ param.label }}</label>
+                                        <input type="{{ 'number' if param.type == 'number' else 'text' }}" 
+                                               class="form-control config-input" 
+                                               id="param-{{ location }}-{{ device_name }}-{{ param.key }}"
+                                               data-section="{{ param.section }}"
+                                               data-key="{{ param.key }}"
+                                               value="{{ device_info.health_data[param.health_key] if param.health_key and device_info.health_data and param.health_key in device_info.health_data else '' }}"
+                                               placeholder="Current value not available">
+                                    </div>
+                                    {% endfor %}
+                                </form>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-primary update-config-btn">Update Configuration</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <p class="text-center text-muted">No devices have been configured.</p>
             </div>
-        </div>
         {% endfor %}
-    {% endfor %}
+    </div>
 </div>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+    function updateDeviceHealthUI(location, deviceName, status) {
+        const statusBadge = document.getElementById(`status-${location}-${deviceName}`);
+        if (!statusBadge) return;
+        
+        if (status === 'online') {
+            statusBadge.className = 'badge rounded-pill text-bg-success';
+            statusBadge.textContent = 'Online';
+        } else if (status === 'offline') {
+            statusBadge.className = 'badge rounded-pill text-bg-danger';
+            statusBadge.textContent = 'Offline';
+        } else {
+            statusBadge.className = 'badge rounded-pill text-bg-secondary';
+            statusBadge.textContent = 'Waiting';
+        }
+    }
+
+    socket.on('connect', () => console.log("Connected to socket server."));
+
+    socket.on('devices_info', function(data) {
+        for (const location in data) {
+            for (const deviceName in data[location]) {
+                const device_info = data[location][deviceName];
+                updateDeviceHealthUI(location, deviceName, device_info.online_status || 'offline');
+            }
+        }
+    });
+
+    socket.on('update_health', function(data) {
+        updateDeviceHealthUI(data.location, data.device, data.status);
+    });
+
+    document.querySelectorAll('.update-config-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            const form = modal.querySelector('.config-form');
+            const location = form.dataset.location;
+            const deviceName = form.dataset.device;
+
+            const inputs = form.querySelectorAll('.config-input');
+            let updatesSent = 0;
+
+            inputs.forEach(input => {
+                if (input.value && input.value.trim() !== '') {
+                    socket.emit('update_config', {
+                        location: location,
+                        device: deviceName,
+                        section: input.dataset.section,
+                        key: input.dataset.key,
+                        value: input.value
+                    });
+                    updatesSent++;
+                }
+            });
+
+            if (updatesSent > 0) {
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
+            } else {
+                showToast('No changes to send.', 'info');
+            }
+        });
+    });
+
+    socket.on('config_update_status', function(data) {
+        const status = data.status || 'error';
+        const message = data.message || 'An unknown error occurred.';
+        
+        showToast(message, status === 'success' ? 'success' : 'danger');
+
+        document.querySelectorAll('.update-config-btn').forEach(button => {
+            button.disabled = false;
+            button.innerHTML = 'Update Configuration';
+        });
+
+        if (status === 'success') {
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            });
+        }
+    });
+});
+</script>
 {% endblock %}

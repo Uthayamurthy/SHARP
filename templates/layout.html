@@ -136,7 +136,9 @@ Contact Author : uthayamurthy2006@gmail.com
             {% endif %}
         {% endwith %}
 
-
+        <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+            <!-- Toasts will be appended here by JS -->
+        </div>
 
         {% block body %}{% endblock %}
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
@@ -245,6 +247,44 @@ Contact Author : uthayamurthy2006@gmail.com
             }
         });
         </script>
+
+        <script>
+            function showToast(message, type = 'info') {
+                const toastContainer = document.querySelector('.toast-container');
+                if (!toastContainer) return;
+
+                const toastId = 'toast-' + Math.random().toString(36).substr(2, 9);
+                const toastIcon = {
+                    success: 'check-circle-fill',
+                    danger: 'exclamation-triangle-fill',
+                    info: 'info-circle-fill',
+                    warning: 'exclamation-triangle-fill'
+                }[type] || 'info-circle-fill';
+
+                const toastHtml = `
+                    <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="bi bi-${toastIcon} me-2"></i>
+                                ${message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                    </div>
+                `;
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                
+                const toastElement = document.getElementById(toastId);
+                const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+                
+                toastElement.addEventListener('hidden.bs.toast', () => {
+                    toastElement.remove();
+                });
+
+                toast.show();
+            }
+        </script>
+
     <footer class="footer bg-body-secondary-subtle text-center mt-auto py-3">
         <div class="container">
         <span class="text-muted">Copyright <i class="bi bi-c-square"></i> 2024 - <a class="text-muted text-decoration-none" href="https://github.com/Uthayamurthy" target="_blank">R Uthaya Murthy</a> | 
