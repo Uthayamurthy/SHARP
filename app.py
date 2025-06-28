@@ -27,7 +27,7 @@ from __version__ import version
 from auth import auth_bp
 from routes import main_bp, format_time_12hr, dashless, to_ist, colorize_log
 from extensions import db, bcrypt, login_manager
-from models import User, Log
+from models import User, Log, SmartRepetitionState, SmartRepetitionTask
 from automation_agent import AUTO_AGENT
 from database_logger import log_event
 import multiprocessing

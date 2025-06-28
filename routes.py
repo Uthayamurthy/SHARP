@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, flash, url_for, current_app, jsonify
 from flask_login import login_required, current_user
 from extensions import db, bcrypt
-from models import User, Log
+from models import User, Log, SmartRepetitionState, SmartRepetitionTask
 from forms import (UpdateProfileForm, ChangePasswordForm, CreateUserForm, 
                    AdminUpdateUserForm, AdminChangePasswordForm, AdminUpdateRoleForm, AdminDeleteUserForm)
 from decorators import admin_required
@@ -10,7 +10,7 @@ import secrets
 import os
 from PIL import Image
 import re
-from datetime import datetime
+from datetime import datetime, date
 from zoneinfo import ZoneInfo
 from markupsafe import Markup
 
@@ -21,21 +21,18 @@ IST = ZoneInfo("Asia/Kolkata")
 
 def to_ist(utc_dt):
     """Converts a UTC datetime object to IST."""
+    if not utc_dt: return None
     if utc_dt.tzinfo is None:
         utc_dt = utc_dt.replace(tzinfo=ZoneInfo("UTC"))
     return utc_dt.astimezone(IST)
 
 def colorize_log(event_text):
     """A Jinja filter to colorize keywords in a log event string."""
-    
-    # New logic to find the actionable name without quotes
     match = re.match(r"([\w\s-]+) state changed to", event_text)
     if match:
         actionable_part = match.group(1).strip()
         colored_actionable = f'<span class="text-primary fw-bold">{actionable_part}</span>'
         event_text = event_text.replace(actionable_part, colored_actionable, 1)
-
-    # Color general keywords
     replacements = {
         'online': '<span class="text-success fw-bold">online</span>',
         'offline': '<span class="text-danger fw-bold">offline</span>',
@@ -43,17 +40,15 @@ def colorize_log(event_text):
         'ON': '<span class="text-success fw-bold">ON</span>',
         'OFF': '<span class="text-danger fw-bold">OFF</span>',
     }
-    # Use word boundaries to avoid replacing parts of words
     for word, replacement in replacements.items():
         event_text = re.sub(r'\b' + re.escape(word) + r'\b', replacement, event_text)
-
     return Markup(event_text)
 
 def format_time_12hr(time_str):
     try:
         if isinstance(time_str, datetime):
              return time_str.strftime('%I:%M %p')
-        dt = datetime.strptime(time_str, '%H:%M')
+        dt = datetime.strptime(str(time_str), '%H:%M')
         return dt.strftime('%I:%M %p')
     except (ValueError, TypeError):
         return time_str
@@ -66,7 +61,6 @@ def save_picture(form_picture):
     _, f_ext = os.path.splitext(form_picture.filename)
     picture_fn = random_hex + f_ext
     picture_path = os.path.join(current_app.root_path, 'static/profile_pics', picture_fn)
-
     output_size = (125, 125)
     i = Image.open(form_picture)
     i.thumbnail(output_size)
@@ -136,25 +130,16 @@ def devices():
 @login_required
 def automations():
     devices_info = current_app.config['DEVICES_INFO']
-    devices_list = []
-    actionables_list = {}
-
+    devices_list, actionables_list = [], {}
     with open('data/automations.json', 'r') as am_file:
         automations_data = json.load(am_file)
-    
     for location, devices in devices_info.items():
         for device_name, device_info in devices.items():
             formatted_name = f'{location}::{device_name}'
             devices_list.append(formatted_name)
-            
-            actionables_for_device = []
-            for actionable_name, info in device_info.items():
-                if isinstance(info, dict) and 'action_topic' in info:
-                    actionables_for_device.append(actionable_name)
-            
+            actionables_for_device = [name for name, info in device_info.items() if isinstance(info, dict) and 'action_topic' in info]
             if actionables_for_device:
                 actionables_list[formatted_name] = actionables_for_device
-
     return render_template('automations.html', devices=devices_list, actionables=actionables_list, automations=automations_data)
 
 @main_bp.route('/new-automation', methods=['POST'])
@@ -170,36 +155,78 @@ def new_automation():
 
     auto_params = {}
     if auto_type == 'TIME-SCHEDULED':
-        auto_params = {
-            'start_time': request.form.get('start_time'),
-            'end_time': request.form.get('end_time')
-        }
+        auto_params = {'start_time': request.form.get('start_time'), 'end_time': request.form.get('end_time')}
     elif auto_type == 'SUNLIGHT-TRIGGERED':
         auto_params = {
-            'start': {
-                'type': request.form.get('start_trigger_type'),
-                'value': request.form.get('start_trigger_value') or None
-            },
-            'end': {
-                'type': request.form.get('end_trigger_type'),
-                'value': request.form.get('end_trigger_value') or None
-            }
+            'start': {'type': request.form.get('start_trigger_type'), 'value': request.form.get('start_trigger_value') or None},
+            'end': {'type': request.form.get('end_trigger_type'), 'value': request.form.get('end_trigger_value') or None}
+        }
+    elif auto_type == 'SMART-REPETITION':
+        repetitions = []
+        i = 0
+        while f'repetition_start_{i}' in request.form:
+            start = request.form.get(f'repetition_start_{i}')
+            end = request.form.get(f'repetition_end_{i}')
+            if start and end:
+                repetitions.append({'feasible_start': start, 'feasible_end': end})
+            i += 1
+        
+        if not repetitions:
+            flash('Smart Repetition requires at least one feasible time window.', 'danger')
+            return redirect(url_for('main.automations'))
+
+        auto_params = {
+            'duration_minutes': int(request.form.get('duration_minutes')),
+            'min_repetitions': int(request.form.get('min_repetitions')),
+            'repetitions': repetitions
         }
 
     if not auto_params:
-        flash('Invalid automation type submitted.', 'danger')
+        flash('Invalid automation type or missing parameters.', 'danger')
         return redirect(url_for('main.automations'))
 
-    automations_data[automation_name] = {
-        'enabled': True, 'location': location, 'device': device, 'actionable': actionable,
-        'AUTO_TYPE': auto_type, 'AUTO_PARAMS': auto_params
-    }
+    automations_data[automation_name] = {'enabled': True, 'location': location, 'device': device, 'actionable': actionable, 'AUTO_TYPE': auto_type, 'AUTO_PARAMS': auto_params}
     with open('data/automations.json', 'w') as am_file:
         json.dump(automations_data, am_file, indent=4)
     
     current_app.config['AGENT_CONN'].send('RELOAD')
     flash(f'Automation: {automation_name} added successfully!', 'success')
     return redirect(url_for('main.automations'))
+
+@main_bp.route('/automation-status/<automation_name>')
+@login_required
+def automation_status(automation_name):
+    today = date.today()
+    state = SmartRepetitionState.query.filter_by(automation_name=automation_name, run_date=today).first()
+    
+    if not state:
+        return jsonify({'status': 'NOT_STARTED', 'message': 'Automation has not run yet today.'}), 404
+
+    tasks_data = []
+    for task in state.tasks:
+        # Task index 99 is for make-up runs
+        if task.task_index != 99:
+             tasks_data.append({
+                'index': task.task_index,
+                'status': task.status,
+                'attempts': task.attempts,
+                'last_attempt': to_ist(task.last_attempt_time).strftime('%I:%M:%S %p') if task.last_attempt_time else 'N/A',
+                'completed_at': to_ist(task.completion_time).strftime('%I:%M:%S %p') if task.completion_time else 'N/A'
+            })
+
+    # Find config from json
+    with open('data/automations.json', 'r') as am_file:
+        config = json.load(am_file).get(automation_name)
+
+    return jsonify({
+        'status': 'FOUND',
+        'automation_name': state.automation_name,
+        'run_date': state.run_date.strftime('%Y-%m-%d'),
+        'successful_runs': state.successful_runs,
+        'overall_status': state.status,
+        'tasks': tasks_data,
+        'config': config['AUTO_PARAMS']
+    })
 
 
 @main_bp.route('/delete-automation', methods=['POST'])
