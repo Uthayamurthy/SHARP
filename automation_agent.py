@@ -23,9 +23,12 @@ from datetime import datetime, time as dt_time
 from time import sleep
 import paho.mqtt.client as mqtt
 import json
+import os
 from sun_manager import SunManager
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
+
+basedir = os.path.abspath(os.path.dirname(__file__))
 
 # --- Database Setup for Agent Logging ---
 Base = declarative_base()
@@ -38,8 +41,8 @@ class Log(Base):
     event = Column(String(255), nullable=False)
 
 try:
-    # Use the same relative path as the main app
-    engine = create_engine('sqlite:///instance/sharp.db')
+    db_path = os.path.join(basedir, 'instance', 'sharp.db')
+    engine = create_engine(f'sqlite:///{db_path}')
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     print("SHARP AUTO AGENT: Database connection for logging established.")
 except Exception as e:

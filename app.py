@@ -39,6 +39,8 @@ import time
 
 print('SHARP: Starting up...')
 
+basedir = os.path.abspath(os.path.dirname(__file__))
+
 app = Flask(__name__)
 
 with open('config/flask_app_conf.json', 'r') as f:
@@ -56,7 +58,7 @@ for location, devices in devices_info_data.items():
 
 app.config['SECRET_KEY'] = flask_conf['SECRET_KEY']
 app.config['TEMPLATES_AUTO_RELOAD'] = flask_conf['TEMPLATES_AUTO_RELOAD']
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///instance/sharp.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(basedir, 'instance', 'sharp.db')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config['MQTT_BROKER_URL'] = mqtt_conf['MQTT_HOST']
