@@ -82,11 +82,11 @@ Contact Author : uthayamurthy2006@gmail.com
                     <!-- Main Navigation Links -->
                     <div class="navbar-nav nav-underline me-auto">
                         {% set navigation_bar = [
-                            (url_for('main.home'), 'home', 'Home', 'house-fill'),
-                            (url_for('main.devices'), 'devices', 'Devices', 'gear-fill'),
-                            (url_for('main.automations'), 'automations', 'Automations', 'stars'),
-                            (url_for('main.logs'), 'logs', 'Logs', 'file-earmark-text'),
-                            (url_for('main.about'), 'about', 'About', 'info-circle')
+                            (url_for('main.home'), 'home', 'Home', 'house'),
+                            (url_for('main.devices'), 'devices', 'Devices', 'gear'),
+                            (url_for('main.automations'), 'automations', 'Automations', 'house-gear'),
+                            (url_for('main.logs'), 'logs', 'Logs', 'clock-history'),
+                            (url_for('main.about'), 'about', 'About', 'info-square')
                         ] -%}
                         {% for href, id, caption, icon in navigation_bar -%}
                             <a class="nav-link {% if id == active_page %}active{% endif %}" href="{{ href|e }}">
