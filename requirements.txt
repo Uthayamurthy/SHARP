@@ -2,3 +2,11 @@ flask
 Flask-MQTT
 flask-socketio
 gunicorn
+Flask-SQLAlchemy
+Flask-WTF
+Flask-Login
+email_validator
+Pillow
+flask-bcrypt
+requests
+markupsafe

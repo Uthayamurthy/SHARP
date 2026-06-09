@@ -1,0 +1,20 @@
+[project]
+name = "sharp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "email-validator>=2.2.0",
+    "flask>=3.1.1",
+    "flask-bcrypt>=1.0.1",
+    "flask-login>=0.6.3",
+    "flask-mqtt>=1.2.1",
+    "flask-socketio>=5.5.1",
+    "flask-sqlalchemy>=3.1.1",
+    "flask-wtf>=1.2.2",
+    "gunicorn>=23.0.0",
+    "markupsafe>=3.0.2",
+    "pillow>=11.2.1",
+    "requests>=2.32.4",
+]

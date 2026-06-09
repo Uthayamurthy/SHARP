@@ -19,34 +19,53 @@ S.H.A.R.P - Smart Home Automation Research Project
 Contact Author : uthayamurthy2006@gmail.com
 '''
 
-from automation_agent import AUTO_AGENT
-from flask import Flask, render_template, request, redirect, flash
-from flask_mqtt import Mqtt
+from flask import Flask, current_app
 from flask_socketio import SocketIO
-from datetime import datetime
+from flask_mqtt import Mqtt
 from time import sleep
 from __version__ import version
-from  logs_loader import load_logs
-import multiprocessing 
+from auth import auth_bp
+from routes import main_bp, format_time_12hr, dashless, to_ist, colorize_log
+from extensions import db, bcrypt, login_manager
+from models import User, Log
+from automation_agent import AUTO_AGENT
+from database_logger import log_event
+import multiprocessing
 import json
 import signal
+import os
+import threading
+import time
 
 print('SHARP: Starting up...')
 
-app = Flask(__name__)
+basedir = os.path.abspath(os.path.dirname(__file__))
 
-log_items = None
+app = Flask(__name__)
 
 with open('config/flask_app_conf.json', 'r') as f:
     flask_conf = json.load(f)
-
 with open('config/mqtt_conf.json', 'r') as f:
     mqtt_conf = json.load(f)
+with open('data/devices_info.json') as f:
+    devices_info_data = json.load(f)
+
+for location, devices in devices_info_data.items():
+    for device_name, device_info in devices.items():
+        device_info.setdefault('online_status', 'waiting')
+        device_info.setdefault('last_seen', 0)
+        device_info.setdefault('start_time', time.time())
+        device_info.setdefault('health_data', {})
+
+
+app.config['SECRET_KEY'] = flask_conf['SECRET_KEY']
+app.config['TEMPLATES_AUTO_RELOAD'] = flask_conf['TEMPLATES_AUTO_RELOAD']
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(basedir, 'instance', 'sharp.db')}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config['MQTT_BROKER_URL'] = mqtt_conf['MQTT_HOST']
 app.config['MQTT_BROKER_PORT'] = mqtt_conf['MQTT_PORT']
 app.config['MQTT_CLIENT_ID'] = mqtt_conf["MQTT_SHARP_CLIENT_ID"]
-app.config['MQTT_CLEAN_SESSION'] = mqtt_conf["MQTT_CLEAN_SESSION"]
 app.config['MQTT_USERNAME'] = mqtt_conf["MQTT_USERNAME"]
 app.config['MQTT_PASSWORD'] = mqtt_conf["MQTT_PASSWORD"]
 app.config['MQTT_KEEPALIVE'] = mqtt_conf['MQTT_KEEP_ALIVE']
@@ -55,235 +74,285 @@ app.config['MQTT_LAST_WILL_TOPIC'] = mqtt_conf['MQTT_LAST_WILL_TOPIC']
 app.config['MQTT_LAST_WILL_MESSAGE'] = mqtt_conf['MQTT_LAST_WILL_MESSAGE']
 app.config['MQTT_LAST_WILL_QOS'] = mqtt_conf['MQTT_LAST_WILL_QOS']
 
-app.config['SECRET_KEY'] = flask_conf['SECRET_KEY']
-app.config['TEMPLATES_AUTO_RELOAD'] = flask_conf['TEMPLATES_AUTO_RELOAD']
+
+app.config['DEVICES_INFO'] = devices_info_data
+
+db.init_app(app)
+bcrypt.init_app(app)
+login_manager.init_app(app)
 
 
-mqtt = Mqtt(app)
+mqtt = Mqtt(app) # MQTT needs to be initialized with app context here
 socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="*")
-agent_conn = None # The pipe to communicate with auto agent process 
-automation_process = None
 
-def format_time_12hr(time_str):
-    try:
-        # Parse the 24-hour format time string
-        dt = datetime.strptime(time_str, '%H:%M')
-        # Convert to 12-hour format with AM/PM
-        return dt.strftime('%I:%M %p')
-    except ValueError:
-        return time_str
-
-def dashless(string):
-    return string.replace('-', ' ')
+app.register_blueprint(auth_bp)
+app.register_blueprint(main_bp)
 
 app.jinja_env.filters['format_time'] = format_time_12hr
 app.jinja_env.filters['dashless'] = dashless
+app.jinja_env.filters['to_ist'] = to_ist
+app.jinja_env.filters['colorize_log'] = colorize_log
 
-with open('data/devices_info.json') as f:
-    devices_info = json.load(f)
 
-def setup():
-    for location, device in devices_info.items():
-            for device_name, actionable in device.items():
-                for actionable_name, info in actionable.items():
-                    topic = info['ack_topic']
-                    try:
-                        b = mqtt.subscribe(topic=topic)
-                    except:
-                        print(f'SHARP : Failed to subscribe to the topic: {topic}')
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+agent_conn, child_conn = multiprocessing.Pipe()
+app.config['AGENT_CONN'] = agent_conn
+automation_process = None
 
 def start_auto_agent():
-    global agent_conn
     global automation_process
-    parent_conn, child_conn = multiprocessing.Pipe()
-    agent_conn = parent_conn
     my_agent = AUTO_AGENT(child_conn)
     automation_process = multiprocessing.Process(target=my_agent.start_agent)
     automation_process.daemon = True
     automation_process.start()
 
+health_topic_map = {}
+ack_topic_map = {}
+config_status_topic_map = {}
+
+def mqtt_setup():
+    """ Creates lookup maps and subscribes to all necessary MQTT topics. """
+    global health_topic_map, ack_topic_map, config_status_topic_map
+    for location, devices in devices_info_data.items():
+        for device_name, device_info in devices.items():
+            if 'health_topic' in device_info:
+                health_topic = device_info['health_topic']
+                mqtt.subscribe(topic=health_topic)
+                health_topic_map[health_topic] = {
+                    'location': location, 'device_name': device_name, 'info': device_info
+                }
+                print(f"SHARP: Subscribed to health topic for {device_name}: {health_topic}")
+
+            if 'config_status_topic' in device_info:
+                config_topic = device_info['config_status_topic']
+                mqtt.subscribe(topic=config_topic)
+                config_status_topic_map[config_topic] = {
+                    'location': location, 'device_name': device_name
+                }
+                print(f"SHARP: Subscribed to config status topic for {device_name}: {config_topic}")
+
+            for actionable_name, info in device_info.items():
+                if isinstance(info, dict) and 'ack_topic' in info:
+                    topic = info['ack_topic']
+                    try:
+                        mqtt.subscribe(topic=topic)
+                        ack_topic_map[topic] = {
+                            'location': location, 'device_name': device_name,
+                            'actionable_name': actionable_name, 'actionable_info': info
+                        }
+                    except Exception as e:
+                        print(f'SHARP: Failed to subscribe to topic {topic}: {e}')
+
 @mqtt.on_message()
 def handle_mqtt_message(client, userdata, message):
-    global devices_info
-
     topic = message.topic
-    state = message.payload.decode()
+    payload_str = message.payload.decode()
 
-    obj_id = ''
+    if topic in health_topic_map:
+        device_context = health_topic_map[topic]
+        device_info = device_context['info']
+        
+        try:
+            health_data = json.loads(payload_str)
+            current_time = time.time()
 
-    for location, device in devices_info.items():
-        for device_name, actionable in device.items():
-            for actionable_name, info in actionable.items():
-                if info['ack_topic'] == topic:
-                    obj_id = f'{location}-{device_name}-{actionable_name}'
-                    print(f'SHARP : Received message from {obj_id}, New state is "{state}" ')
-                    devices_info[location][device_name][actionable_name]['state'] = state
-                    socketio.emit('update_state', data={'obj_id': obj_id, 'state': state})
+            if health_data.get('status') == 'online':
+                prev_status = device_info.get('online_status', 'waiting')
+                device_info['online_status'] = 'online'
+                device_info['last_seen'] = current_time 
+                device_info['health_data'] = health_data
+                
+                print(f"SHARP: Health check PASSED for {device_context['device_name']}. Status: online.")
+
+                if prev_status != 'online':
+                    with app.app_context():
+                        log_event(f"Device ({device_context['device_name']}@{device_context['location']})", "Came online")
+
+                socketio.emit('update_health', data={
+                    'location': device_context['location'], 'device': device_context['device_name'], 
+                    'status': 'online', 'last_seen': current_time, 'health_data': health_data
+                })
+
+        except (json.JSONDecodeError, KeyError) as e:
+            print(f"SHARP: Could not parse health message from {topic}: {e}")
+        return
+
+    if topic in config_status_topic_map:
+        try:
+            status_data = json.loads(payload_str)
+            print(f"SHARP: Received config update status: {status_data}")
+            socketio.emit('config_update_status', status_data)
+        except json.JSONDecodeError as e:
+            print(f"SHARP: Could not parse config status from {topic}: {e}")
+        return
+
+    if topic in ack_topic_map:
+        context = ack_topic_map[topic]
+        state = payload_str
+        context['actionable_info']['state'] = state
+        obj_id = f"{context['location']}-{context['device_name']}-{context['actionable_name']}"
+        print(f'SHARP: Received message from {obj_id}, New state is "{state}"')
+        
+        with app.app_context():
+            entity_name = f"Device ({context['device_name']}@{context['location']})"
+            log_state = state.upper()
+            event_details = f"{context['actionable_name']} state changed to {log_state}"
+            log_event(entity_name, event_details)
+        socketio.emit('update_state', data={'obj_id': obj_id, 'state': state})
+        return
 
 @socketio.on('connect')
-def on_connect ():
-    socketio.send('Socket server ready.')
-    socketio.emit('devices_info', data=devices_info)
+def on_connect():
+    from flask_login import current_user
+    if current_user.is_authenticated:
+        socketio.send('Socket server ready.')
+        socketio.emit('devices_info', data=devices_info_data)
+    else:
+        print("SHARP: Unauthenticated user tried to connect to socket.")
+
 
 @socketio.on('publish')
 def on_publish(data):
-    topic = data['topic']
-    state = data['state']
-    sleep(0.1)
-    a = mqtt.publish(topic, state, qos=1)
+    from flask_login import current_user
+    if current_user.is_authenticated:
+        topic = data['topic']
+        state = data['state']
+        sleep(0.1)
+        mqtt.publish(topic, state, qos=1)
 
-@app.route('/')
-def home():
-    return render_template('home.html', devices_info=devices_info)
+@socketio.on('update_config')
+def handle_config_update(data):
+    from flask_login import current_user
+    if not current_user.is_authenticated:
+        return
 
-@app.route('/devices')
-def devices():
-    return render_template('devices.html', devices_info=devices_info)
-
-@app.route('/automations')
-def automations():
-    devices_list = []
-    actionables_list = {}
-
-
-    with open('data/automations.json', 'r') as am_file:
-        automations = json.load(am_file)
+    location = data.get('location')
+    device_name = data.get('device')
+    section = data.get('section')
+    key = data.get('key')
+    value = data.get('value')
     
-    for location, device in devices_info.items():
-        for device_name, actionable in device.items():
-            formatted_name = f'{location}::{device_name}'
-            devices_list.append(formatted_name)
-            for actionable_name, info in actionable.items():
-                if formatted_name not in actionables_list:
-                    actionables_list[formatted_name] = [actionable_name]
-                else:
-                    actionables_list[formatted_name].append(actionable_name)
+    print(f"SHARP: Received config update request from user for {device_name}: {section}.{key} = {value}")
 
-    return render_template('automations.html', devices=devices_list, actionables=actionables_list, automations=automations)
-
-@app.route('/new-automation', methods=['POST'])
-def new_automation():
-    with open('data/automations.json', 'r') as am_file:
-        automations = json.load(am_file)
-
-    automation_name = request.form.get('automation_name')
-    automation_name = automation_name.strip().replace(' ', '-')
-    location, device = request.form.get('device_detail').split('::')
-    actionable = request.form.get('actionable')
-    auto_type = request.form.get('automation_type')
-    start_time = request.form.get('start_time')
-    end_time = request.form.get('end_time')
-
-    automations[automation_name] = {
-        'enabled': True,
-        'location': location,
-        'device': device,
-        'actionable': actionable,
-        'AUTO_TYPE': auto_type,
-        'AUTO_PARAMS': {
-            'start_time': start_time,
-            'end_time': end_time
-        }
-    }
-    print(f'SHARP: Added New Automation "{automation_name}" for {location}::{device}::{actionable}')
-    with open('data/automations.json', 'w') as am_file:
-        json.dump(automations, am_file, indent=4)
-
-    agent_conn.send('RELOAD')
-
-    flash(f'Automation: {automation_name} added successfully !', 'success')
-    return redirect('/automations')
-
-@app.route('/delete-automation', methods=['POST'])
-def delete_automation():
-    with open('data/automations.json', 'r') as am_file:
-        automations = json.load(am_file)
-
-    automation_name = request.form.get('delete_am_name')
-
-    del automations[automation_name]
-
-    with open('data/automations.json', 'w') as am_file:
-        json.dump(automations, am_file, indent=4)
-
-    agent_conn.send('RELOAD')
-
-    print(f'SHARP: Deleted Automation "{automation_name}" ')
-
-    flash(f'Automation: {automation_name} deleted !', 'danger')
-    return redirect('/automations')
-
-@app.route('/toggle-automation', methods=['POST'])
-def toggle_automation():
-    with open('data/automations.json', 'r') as am_file:
-        automations = json.load(am_file)
-
-    automation_name, state = request.form.get('toggle_am_name').split('--')
-
-    if state == 'pause':
-        automations[automation_name]['enabled'] = False
-        print(f'SHARP: Paused Automation "{automation_name}" ')
-        flash(f'Automation: {automation_name} paused !', 'primary')
-    else:
-        automations[automation_name]['enabled'] = True
-        print(f'SHARP: Resumed Automation "{automation_name}" ')
-        flash(f'Automation: {automation_name} resumed !', 'primary')
-
-    with open('data/automations.json', 'w') as am_file:
-        json.dump(automations, am_file, indent=4)
-
-    agent_conn.send('RELOAD')
-
-    
-    return redirect('/automations')
-
-@app.route('/about')
-def about():
-    return render_template('about.html', version=version)
-
-@app.route('/logs')
-def logs():
-    global log_items
-
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 25, type=int)
-
-    if page == 1:
-        log_items = load_logs()
-
-    if log_items == None:
-        return "Failed to get the logs, looks like SHARP Service is not enabled ..."
-    
-    total_items = len(log_items)
-    total_pages = (total_items + per_page - 1) // per_page
-    
-    start = (page - 1) * per_page
-    end = start + per_page
-    paginated_items = log_items[start:end]
-    
-    return render_template('logs.html', items=paginated_items, page=page, per_page=per_page, total_pages=total_pages)
-
-@app.route('/refresh-logs')
-def refresh_logs():
-    global log_items
-    log_items = load_logs()
-    return redirect('/logs')
-
-with app.app_context():
-        setup()
-        start_auto_agent()
+    try:
+        device_info = current_app.config['DEVICES_INFO'][location][device_name]
+        config_set_topic = device_info.get('config_set_topic')
         
+        if not config_set_topic:
+            raise ValueError("Device does not have a config_set_topic.")
+
+        param_def = next((p for p in device_info.get('configurable_params', []) 
+                          if p['section'] == section and p['key'] == key), None)
+        
+        if not param_def:
+            raise ValueError(f"Parameter {section}.{key} is not defined as configurable.")
+
+        if param_def.get('type') == 'number':
+            processed_value = int(value)
+        else:
+            processed_value = str(value)
+
+        payload = {
+            "section": section,
+            "key": key,
+            "value": processed_value
+        }
+        
+        mqtt.publish(config_set_topic, json.dumps(payload), qos=1)
+        print(f"SHARP: Published config update to {config_set_topic}: {payload}")
+
+    except (KeyError, ValueError, TypeError) as e:
+        print(f"SHARP: Error processing config update: {e}")
+        socketio.emit('config_update_status', {'status': 'error', 'message': f'Server error: {e}'})
+
 def handle_sigterm(*args):
-    print("SHARP: SIGTERM received, attempting to shut down gracefully...")
-    mqtt.client.loop_stop()
-    mqtt.client.disconnect()
-    agent_conn.send('STOP')
-    print("SHARP: Exiting ...")
+    print("SHARP: SIGTERM received, shutting down gracefully...")
+    if mqtt.client:
+        mqtt.client.loop_stop()
+        mqtt.client.disconnect()
+    if agent_conn:
+        agent_conn.send('STOP')
+    print("SHARP: Exiting...")
     exit(0)
 
 signal.signal(signal.SIGTERM, handle_sigterm)
 
-if __name__ == '__main__':
-    # run app in debug mode on port 5000
 
+def check_device_liveness():
+    with app.app_context():
+        while True:
+            now = time.time()
+            for location, devices in devices_info_data.items():
+                for device_name, device_info in devices.items():
+                    
+                    if 'health_interval_sec' not in device_info:
+                        continue
+
+                    current_status = device_info.get('online_status')
+                    if current_status == 'waiting':
+                        initial_wait_time = device_info['health_interval_sec'] * 1.5 
+                        start_time = device_info.get('start_time', 0)
+
+                        if now - start_time > initial_wait_time:
+                            if device_info['online_status'] != 'offline':
+                                print(f"SHARP: Initial health ping not received for {device_name}. Marking as offline.")
+                                device_info['online_status'] = 'offline'
+                                log_event(f"Device ({device_name}@{location})", "Went offline")
+                                socketio.emit('update_health', data={
+                                    'location': location, 'device': device_name, 'status': 'offline'
+                                })
+
+                    elif current_status == 'online':
+                        timeout = device_info['health_interval_sec'] * 2.5 
+                        last_seen = device_info.get('last_seen', 0)
+
+                        if now - last_seen > timeout:
+                            if device_info['online_status'] != 'offline':
+                                print(f"SHARP: Health check FAILED for {device_name}. Marking as offline.")
+                                device_info['online_status'] = 'offline'
+                                log_event(f"Device ({device_name}@{location})", "Went offline")
+                                socketio.emit('update_health', data={
+                                    'location': location, 'device': device_name, 'status': 'offline'
+                                })
+            time.sleep(10)
+
+liveness_thread = threading.Thread(target=check_device_liveness)
+liveness_thread.daemon = True
+
+with app.app_context():
+    db.create_all()
+
+    setup_flag_path = os.path.join(app.instance_path, 'setup.flag')
+    
+    if not os.path.exists(setup_flag_path):
+        print("SHARP: First-time setup detected. Creating default admin user...")
+
+        if not User.query.filter_by(email=flask_conf['DEFAULT_ADMIN_EMAIL']).first():
+            hashed_password = bcrypt.generate_password_hash(flask_conf['DEFAULT_ADMIN_PASSWORD']).decode('utf-8')
+            admin_user = User(
+                username=flask_conf['DEFAULT_ADMIN_USERNAME'],
+                email=flask_conf['DEFAULT_ADMIN_EMAIL'],
+                password_hash=hashed_password,
+                role='Admin'
+            )
+            db.session.add(admin_user)
+            db.session.commit()
+            print(f"SHARP: Default admin '{flask_conf['DEFAULT_ADMIN_USERNAME']}' created.")
+
+            with open(setup_flag_path, 'w') as f:
+                pass
+            print("SHARP: Setup flag created. Default user will not be recreated on subsequent starts.")
+        else:
+             print("SHARP: Default admin email already exists in the database. Skipping creation.")
+    
+    log_event("SHARP", "Application started")
+
+    mqtt_setup()
+    start_auto_agent()
+    liveness_thread.start()
+
+if __name__ == '__main__':
     socketio.run(app, port=5000, host='0.0.0.0', use_reloader=False)

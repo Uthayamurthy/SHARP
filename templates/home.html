@@ -1,27 +1,5 @@
-<!--
-S.H.A.R.P - Smart Home Automation Research Project
-
-    Copyright (C) 2024  R Uthaya Murthy
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-Contact Author : uthayamurthy2006@gmail.com
--->
-
 {% extends "layout.html" %}
 {% set active_page = "home" %}
-
 {% block title %}Home{% endblock %}
 
 {% block heading %}
@@ -30,96 +8,220 @@ Contact Author : uthayamurthy2006@gmail.com
     </div>
 {% endblock %}
 
-    {% block body %}
-    <div class="container-md my-2 py-2">
-        {% for location, devices in devices_info.items() %}
-            <div class="accordion" id="accordion-{{ location }}">
-                <div class="accordion-item">
-                <h2 class="accordion-header">
-                    <button class="accordion-button btn-lg" style="font-size: 28px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ location }}" aria-expanded="true" aria-controls="collapseOne">
-                        <i class="bi bi-geo-alt-fill"></i>  {{ location }}
-                    </button>
-                </h2>
+{% block body %}
+<div class="container-md my-2 py-2">
+    {% for location, devices in devices_info.items() %}
+    <div class="accordion" id="accordion-{{ location }}">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button btn-lg" style="font-size: 28px;" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ location }}" aria-expanded="true" aria-controls="collapseOne">
+                    <i class="bi bi-geo-alt-fill"></i>  {{ location }}
+                </button>
+            </h2>
 
-                <div id="collapse{{ location }}" class="accordion-collapse collapse show" data-bs-parent="#accordion-{{ location }}">
-                    <div class="accordion-body">
-                        {% for device, actionable in devices.items() %}
-                            <div class="row">
-                                <h4 class="h4">{{ device }}</h4>
+            <div id="collapse{{ location }}" class="accordion-collapse collapse show" data-bs-parent="#accordion-{{ location }}">
+                <div class="accordion-body">
+                    {% for device, device_info in devices.items() %}
+                        
+                        <div class="row align-items-center mb-2">
+                            <div class="col">
+                                <h4 class="h4 d-inline">{{ device }}</h4>
+                                <span id="status-{{ location }}-{{ device }}" class="badge rounded-pill ms-2 text-bg-secondary">Unknown</span>
+                                <button class="btn btn-outline-secondary btn-sm rounded-circle py-0 px-1 ms-1" 
+                                        id="info-btn-{{ location }}-{{ device }}"
+                                        style="font-size: 0.8rem; line-height: 1;"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#healthModal-{{ location }}-{{ device }}"
+                                        title="View device health details"
+                                        disabled>
+                                    <i class="bi bi-info-lg"></i>
+                                </button>
                             </div>
-                            <div class="row justify-content-center my-4">
-                                {% for name, info in actionable.items() %}
-                                <div class="col-3 col-md-2 align-self-center m-3 p-2">
-                                    {% if info['state'] == 'on' -%}
-                                        {% set btn_color='success' %}
-                                        {% set btn_value='off' %}
-                                    {% elif info['state'] == 'off' -%}
-                                        {% set btn_color='danger' %}
-                                        {% set btn_value='on' %}
-                                    {% else -%}
-                                        {% set btn_color='outline-secondary' %}
-                                        {% set btn_value='on' %}
+                        </div>
+
+                        <div id="device-controls-{{ location }}-{{ device }}" class="d-flex flex-wrap justify-content-center align-items-center gap-3 my-4">
+                            {% for name, info in device_info.items() %}
+                                {% if info is mapping and 'icon' in info %}
+                                    {% set btn_color = 'outline-secondary' %}
+                                    {% set btn_value = 'on' %}
+                                    {% if info['state'] == 'on' %}{% set btn_color='success' %}{% set btn_value='off' %}
+                                    {% elif info['state'] == 'off' %}{% set btn_color='danger' %}{% set btn_value='on' %}
                                     {% endif %}
                                     <button id="{{ location }}-{{ device }}-{{ name }}" class="btn btn-{{ btn_color }} btn-lg" value="{{ btn_value }}"><i class="bi bi-{{ info['icon'] }}"></i><br>{{ name | dashless }}</button>
+                                {% endif %}
+                            {% endfor %}     
+                        </div>
+
+                        <div class="modal fade" id="healthModal-{{ location }}-{{ device }}" tabindex="-1" aria-labelledby="modalLabel-{{ location }}-{{ device }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="modalLabel-{{ location }}-{{ device }}"><i class="bi bi-clipboard2-pulse"></i> {{ device }} Health Details</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div id="health-details-body-{{ location }}-{{ device }}">
+                                            <p class="text-center text-muted">Waiting for health data...</p>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                    </div>
                                 </div>
-                                {% endfor %}     
                             </div>
-                        {% endfor %}
-                    </div>
-                </div>
+                        </div>
+
+                    {% endfor %}
                 </div>
             </div>
-            {% endfor %}
+        </div>
     </div>
+    {% endfor %}
+</div>
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
-    <script type="text/javascript" charset="utf-8">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+<script type="text/javascript" charset="utf-8">
+    document.addEventListener('DOMContentLoaded', function() {
         var socket = io.connect('http://' + document.domain + ':' + location.port);
-        var devices_info = {}
-        socket.on('connect', function()
-        {
-        console.log ("Connected to socket server.");
-        });
+        
+        function formatUptime(ms) {
+            if (!ms && ms !== 0) return 'N/A';
+            let seconds = Math.floor(ms / 1000);
+            let minutes = Math.floor(seconds / 60);
+            let hours = Math.floor(minutes / 60);
+            let days = Math.floor(hours / 24);
+            seconds %= 60;
+            minutes %= 60;
+            hours %= 24;
+            let parts = [];
+            if (days > 0) parts.push(`${days}d`);
+            if (hours > 0) parts.push(`${hours}h`);
+            if (minutes > 0) parts.push(`${minutes}m`);
+            if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+            return parts.join(' ');
+        }
 
-        socket.on('devices_info', function(data)
-        {
-        // console.log ("Got devices info: ");
-        // console.log (data);
-        devices_info = data;
-        for (const location in devices_info) {
-            for (const device in devices_info[location]) {
-                for (const actionable in devices_info[location][device]) {
-                    var button_id = location + '-' + device + '-' + actionable;
-                    var button = document.getElementById(button_id);
-                    if (button) {
-                        (function(button, button_id, location, device, actionable) {
-                            button.addEventListener('click', function() {
-                            console.log("BUTTON CALLBACK : Clicked on button: " + button_id);
-                            var message = button.value;
-                            console.log("BUTTON CALLBACK : Message- " + message);
-                            socket.emit('publish', {'topic': devices_info[location][device][actionable]['action_topic'], 'state': message});
-                    });
-                })(button, button_id, location, device, actionable);
+        function formatKeyToLabel(key) {
+            return key
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, char => char.toUpperCase());
+        }
+
+        function updateHealthModal(location, deviceName, healthData, lastSeen) {
+            const modalBody = document.getElementById(`health-details-body-${location}-${deviceName}`);
+            if (!modalBody) return;
+
+            let content = '<dl class="row">';
+            const lastSeenDate = lastSeen ? new Date(lastSeen * 1000).toLocaleString() : 'Never';
+            content += `<dt class="col-sm-5">Last Seen</dt><dd class="col-sm-7">${lastSeenDate}</dd>`;
+
+            if (healthData) {
+                const preferredOrder = ['status', 'uptime_ms', 'mcu_temp_F', 'free_mem_bytes', 'wifi_rssi', 'ip'];
+                const allKeys = Object.keys(healthData);
+
+                const orderedKeys = preferredOrder.filter(k => allKeys.includes(k));
+                const remainingKeys = allKeys.filter(k => !preferredOrder.includes(k)).sort();
+                const displayKeys = [...orderedKeys, ...remainingKeys];
+
+                for (const key of displayKeys) {
+                    let value = healthData[key];
+                    const label = formatKeyToLabel(key);
+                    
+                    switch (key) {
+                        case 'uptime_ms':
+                            value = formatUptime(value);
+                            break;
+                        case 'free_mem_bytes':
+                            value = `${(value / 1024).toFixed(2)} KB`;
+                            break;
+                        case 'mcu_temp_F':
+                            value = `${value} °F`;
+                            break;
+                        case 'wifi_rssi':
+                             value = `${value} dBm`;
+                             break;
+                        case 'status':
+                            continue; 
+                    }
+                    content += `<dt class="col-sm-5 text-capitalize">${label}</dt><dd class="col-sm-7">${value}</dd>`;
+                }
+            } else {
+                content += '<p class="text-center">No detailed health data available.</p>';
+            }
+
+            content += '</dl>';
+            modalBody.innerHTML = content;
+        }
+
+        function updateDeviceHealthUI(location, deviceName, status) {
+            const statusBadge = document.getElementById(`status-${location}-${deviceName}`);
+            const controlsContainer = document.getElementById(`device-controls-${location}-${deviceName}`);
+            const infoButton = document.getElementById(`info-btn-${location}-${deviceName}`);
+
+            if (!statusBadge || !controlsContainer || !infoButton) return;
+            const controlButtons = controlsContainer.querySelectorAll('button');
+
+            if (status === 'online') {
+                statusBadge.className = 'badge rounded-pill ms-2 text-bg-success';
+                statusBadge.textContent = 'Online';
+                infoButton.disabled = false;
+                controlButtons.forEach(btn => { btn.disabled = false; btn.removeAttribute('title'); });
+            } else if (status === 'offline') {
+                statusBadge.className = 'badge rounded-pill ms-2 text-bg-danger';
+                statusBadge.textContent = 'Offline';
+                infoButton.disabled = true;
+                controlButtons.forEach(btn => { btn.disabled = true; btn.title = 'Device is offline'; });
+            } else { 
+                statusBadge.className = 'badge rounded-pill ms-2 text-bg-warning';
+                statusBadge.textContent = 'Waiting...';
+                infoButton.disabled = true;
+                controlButtons.forEach(btn => { btn.disabled = true; btn.title = 'Waiting for device status'; });
             }
         }
-    }
-}
+        
+        socket.on('connect', () => console.log("Connected to socket server."));
 
+        socket.on('devices_info', function(data) {
+            for (const location in data) {
+                for (const deviceName in data[location]) {
+                    const device_info = data[location][deviceName];
+                    
+                    updateDeviceHealthUI(location, deviceName, device_info.online_status || 'offline');
+                    updateHealthModal(location, deviceName, device_info.health_data, device_info.last_seen);
+                    
+                    for (const actionableName in device_info) {
+                        if (typeof device_info[actionableName] === 'object' && device_info[actionableName]?.action_topic) {
+                            const button = document.getElementById(`${location}-${deviceName}-${actionableName}`);
+                            if (button) {
+                                button.addEventListener('click', () => {
+                                    socket.emit('publish', {
+                                        'topic': device_info[actionableName]['action_topic'], 
+                                        'state': button.value
+                                    });
+                                });
+                            }
+                        }
+                    }
+                }
+            }
         });
         
-
         socket.on('update_state', function(data) {
-            console.log("UPDATE_STATE: Received " + data.obj_id + " - " + data.state);
-            var button = document.getElementById(data.obj_id);
+            const button = document.getElementById(data.obj_id);
+            if (!button) return;
             if (data.state == 'on') {
                 button.className = 'btn btn-success btn-lg';
                 button.value = 'off';
-                
             } else {
                 button.className = 'btn btn-danger btn-lg';
                 button.value = 'on';
             }
-            console.log("UPDATE_STATE: Value of Button is " + button.value);
         });
-    </script>
+
+        socket.on('update_health', function(data) {
+            updateDeviceHealthUI(data.location, data.device, data.status);
+            updateHealthModal(data.location, data.device, data.health_data, data.last_seen);
+        });
+    });
+</script>
 {% endblock %}

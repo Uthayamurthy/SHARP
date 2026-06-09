@@ -47,23 +47,77 @@ Contact Author : uthayamurthy2006@gmail.com
         {% set active_page = active_page|default('index') -%}
         
         <!-- navbar-->
-        <nav class="navbar navbar-expand-md  border-body">
+        <nav class="navbar navbar-expand-md border-body">
             <div class="container-fluid">
-            <a class="navbar-brand" style="font-size: 32px;" href="#"> <i class="bi bi-hash"></i> SHARP</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mynavbar" aria-controls="mynavbar" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="mynavbar">
-                <div class="navbar-nav nav-underline me-auto">
-                    {% for href, id, caption in navigation_bar -%}
-                        {% if id == active_page -%}
-                            <a class="nav-link active" aria-current="page" href="{{ href|e }}">{{ caption }}</a>
-                        {% else -%}
-                            <a class="nav-link" href="{{ href|e }}">{{ caption }}</a>
-                        {% endif -%}
-                    {% endfor -%}
+                <!-- Brand, always on the left -->
+                <a class="navbar-brand" style="font-size: 32px;" href="{{ url_for('main.home') }}"> <i class="bi bi-hash"></i> SHARP</a>
+        
+                <!-- Wrapper for right-side icons, visible on all screen sizes -->
+                <div class="d-flex align-items-center">
+                    {% if current_user.is_authenticated %}
+                    <!-- Mobile-only User Dropdown. Note the simplified classes. -->
+                    <div class="dropdown d-md-none px-3">
+                        <a class="nav-link" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_image) }}" class="rounded-circle" width="30" height="30">
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li class="dropdown-item-text"><i class="bi bi-person-circle"></i> {{ current_user.username }}</li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('main.profile') }}"><i class="bi bi-person-fill"></i> Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Hamburger Toggler Button -->
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mynavbar" aria-controls="mynavbar" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
                 </div>
-            </div>
+        
+                <!-- Collapsible Navbar Content -->
+                <div class="collapse navbar-collapse" id="mynavbar">
+                    {% if current_user.is_authenticated %}
+                    <!-- Main Navigation Links -->
+                    <div class="navbar-nav nav-underline me-auto">
+                        {% set navigation_bar = [
+                            (url_for('main.home'), 'home', 'Home', 'house'),
+                            (url_for('main.devices'), 'devices', 'Devices', 'gear'),
+                            (url_for('main.automations'), 'automations', 'Automations', 'house-gear'),
+                            (url_for('main.logs'), 'logs', 'Logs', 'clock-history'),
+                            (url_for('main.about'), 'about', 'About', 'info-square')
+                        ] -%}
+                        {% for href, id, caption, icon in navigation_bar -%}
+                            <a class="nav-link {% if id == active_page %}active{% endif %}" href="{{ href|e }}">
+                                <i class="bi bi-{{ icon }}"></i> {{ caption }}
+                            </a>
+                        {% endfor -%}
+                        {% if current_user.role == 'Admin' %}
+                            <a class="nav-link {% if 'admin' == active_page %}active{% endif %}" href="{{ url_for('main.admin_dashboard') }}"><i class="bi bi-shield-lock"></i> Admin</a>
+                        {% endif %}
+                    </div>
+                    <!-- Desktop-only User Dropdown -->
+                    <div class="navbar-nav ms-auto d-none d-md-block">
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_image) }}" class="rounded-circle" width="30" height="30">
+                                {{ current_user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ url_for('main.profile') }}"><i class="bi bi-person-fill"></i> Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                            </ul>
+                        </li>
+                    </div>
+                    {% else %}
+                    <!-- Login link when not authenticated -->
+                    <div class="navbar-nav nav-underline ms-auto">
+                        <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </nav>
         <!-- navbar ends-->
@@ -82,16 +136,163 @@ Contact Author : uthayamurthy2006@gmail.com
             {% endif %}
         {% endwith %}
 
-
+        <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+            <!-- Toasts will be appended here by JS -->
+        </div>
 
         {% block body %}{% endblock %}
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     
-        <footer class="footer bg-body-secondary-subtle text-center mt-auto py-3">
-            <div class="container">
-              <span class="text-muted">Copyright <i class="bi bi-c-square"></i> 2024 - <a class="text-muted text-decoration-none" href="https://github.com/Uthayamurthy" target="_blank">R Uthaya Murthy</a> - All Rights Reserved</span>
-            </div>
-          </footer>
-    
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const passwordInput = document.getElementById('new-password-input');
+            const strengthBar = document.getElementById('password-strength-bar');
+            const strengthText = document.getElementById('password-strength-text');
+
+            if (passwordInput) { // Only run if the password input exists on the page
+                passwordInput.addEventListener('input', function() {
+                    const password = this.value;
+                    
+                    fetch('{{ url_for("main.password_strength") }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            // Add CSRF token if you use Flask-SeaSurf or similar
+                        },
+                        body: JSON.stringify({ 'password': password })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        const score = data.score || 0;
+                        const strength = data.strength || 'Very Weak';
+                        let barClass = '';
+
+                        // Update bar color based on strength
+                        if (score <= 2) {
+                            barClass = 'bg-danger';
+                        } else if (score == 3) {
+                            barClass = 'bg-warning';
+                        } else if (score == 4) {
+                            barClass = 'bg-info';
+                        } else {
+                            barClass = 'bg-success';
+                        }
+                        
+                        strengthBar.className = 'progress-bar ' + barClass;
+                        strengthBar.style.width = (score * 20) + '%';
+                        strengthText.textContent = data.message || '';
+                    });
+                });
+            }
+        });
+        </script>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const togglePasswordButtons = document.querySelectorAll('.toggle-password-vis');
+
+                togglePasswordButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        // Find the input field within the same input-group.
+                        // It's the element right before this button.
+                        const passwordInput = this.previousElementSibling; 
+                        const icon = this.querySelector('i');
+
+                        // Toggle the type attribute
+                        if (passwordInput.type === 'password') {
+                            passwordInput.type = 'text';
+                            icon.classList.remove('bi-eye-fill');
+                            icon.classList.add('bi-eye-slash-fill');
+                        } else {
+                            passwordInput.type = 'password';
+                            icon.classList.remove('bi-eye-slash-fill');
+                            icon.classList.add('bi-eye-fill');
+                        }
+                    });
+                });
+            });
+        </script>
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const newPasswordInput = document.getElementById('new-password-input');
+            const confirmPasswordInput = document.getElementById('confirm-password-input');
+            const feedbackElement = document.getElementById('password-match-feedback');
+
+            // Only run if all three elements exist on the page
+            if (newPasswordInput && confirmPasswordInput && feedbackElement) {
+                const checkPasswords = function() {
+                    const pass1 = newPasswordInput.value;
+                    const pass2 = confirmPasswordInput.value;
+
+                    if (pass2.length === 0) {
+                        feedbackElement.textContent = '';
+                        confirmPasswordInput.classList.remove('is-invalid', 'is-valid');
+                        return;
+                    }
+
+                    if (pass1 === pass2) {
+                        feedbackElement.textContent = ''; // Clear error message
+                        confirmPasswordInput.classList.remove('is-invalid');
+                        confirmPasswordInput.classList.add('is-valid');
+                    } else {
+                        feedbackElement.textContent = 'Passwords do not match.';
+                        confirmPasswordInput.classList.remove('is-valid');
+                        confirmPasswordInput.classList.add('is-invalid');
+                    }
+                };
+
+                // Add event listeners to both fields
+                newPasswordInput.addEventListener('input', checkPasswords);
+                confirmPasswordInput.addEventListener('input', checkPasswords);
+            }
+        });
+        </script>
+
+        <script>
+            function showToast(message, type = 'info') {
+                const toastContainer = document.querySelector('.toast-container');
+                if (!toastContainer) return;
+
+                const toastId = 'toast-' + Math.random().toString(36).substr(2, 9);
+                const toastIcon = {
+                    success: 'check-circle-fill',
+                    danger: 'exclamation-triangle-fill',
+                    info: 'info-circle-fill',
+                    warning: 'exclamation-triangle-fill'
+                }[type] || 'info-circle-fill';
+
+                const toastHtml = `
+                    <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="bi bi-${toastIcon} me-2"></i>
+                                ${message}
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                    </div>
+                `;
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                
+                const toastElement = document.getElementById(toastId);
+                const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+                
+                toastElement.addEventListener('hidden.bs.toast', () => {
+                    toastElement.remove();
+                });
+
+                toast.show();
+            }
+        </script>
+
+    <footer class="footer bg-body-secondary-subtle text-center mt-auto py-3">
+        <div class="container">
+        <span class="text-muted">Copyright <i class="bi bi-c-square"></i> 2024 - <a class="text-muted text-decoration-none" href="https://github.com/Uthayamurthy" target="_blank">R Uthaya Murthy</a> | 
+            {% if current_user.is_authenticated %}
+            Logged in as {{ current_user.username }} ({{ current_user.role }})
+            {% endif %}
+        </span>
+        </div>
+    </footer>    
     </body>
 </html>

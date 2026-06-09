@@ -1,0 +1,50 @@
+{% extends "layout.html" %}
+{% set active_page = "admin" %}
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block heading %}
+<div class="container-md my-2 py-2 text-center">
+    <h1 class="display-3"><i class="bi bi-shield-lock-fill"></i> Admin Dashboard</h1>
+</div>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>User Management</h2>
+        <a href="{{ url_for('main.create_user') }}" class="btn btn-success"><i class="bi bi-plus-circle"></i> Create New User</a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td><span class="badge text-bg-{% if user.role == 'Admin' %}danger{% else %}secondary{% endif %}">{{ user.role }}</span></td>
+                    <td>
+                        <!-- CHANGE: Enable button and add logic to disable for self-editing -->
+                        {% if user == current_user %}
+                            <a href="#" class="btn btn-sm btn-outline-secondary disabled" title="Use Profile page to edit yourself">Edit</a>
+                        {% else %}
+                            <a href="{{ url_for('main.edit_user', user_id=user.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

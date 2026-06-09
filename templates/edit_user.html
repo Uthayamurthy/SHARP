@@ -1,0 +1,106 @@
+{% extends "layout.html" %}
+{% set active_page = "admin" %}
+{% block title %}Edit User{% endblock %}
+
+{% block heading %}
+<div class="container-md my-2 py-2 text-center">
+    <h1 class="display-3"><i class="bi bi-person-gear"></i> Edit User</h1>
+    <h2 class="text-muted">{{ user.username }}</h2>
+</div>
+{% endblock %}
+
+{% block body %}
+<div class="container my-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Update User Details Form -->
+            <div class="card mb-4">
+                <div class="card-header">User Details</div>
+                <div class="card-body">
+                    <form method="POST" action="">
+                        {{ details_form.hidden_tag() }}
+                        <div class="mb-3">
+                            {{ details_form.username.label(class="form-label") }}
+                            {{ details_form.username(class="form-control") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ details_form.email.label(class="form-label") }}
+                            {{ details_form.email(class="form-control") }}
+                        </div>
+                        <button type="submit" name="submit_details" class="btn btn-primary">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Change Password Form -->
+            <div class="card mb-4">
+                <div class="card-header">Set New Password</div>
+                <div class="card-body">
+                    <form method="POST" action="">
+                        {{ password_form.hidden_tag() }}
+                                                <div class="mb-3">
+                            {{ password_form.password.label(class="form-label") }}
+                            <div class="input-group">
+                                {{ password_form.password(class="form-control", id="new-password-input") }}
+                                <button class="btn btn-outline-secondary toggle-password-vis" type="button"><i class="bi bi-eye-fill"></i></button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            {{ password_form.confirm_password.label(class="form-label") }}
+                            <div class="input-group">
+                                {{ password_form.confirm_password(class="form-control", id="confirm-password-input") }}
+                                <button class="btn btn-outline-secondary toggle-password-vis" type="button"><i class="bi bi-eye-fill"></i></button>
+                            </div>
+                            <div id="password-match-feedback" class="invalid-feedback d-block"></div>
+                        </div>
+                        </div>
+                        <button type="submit" name="submit_password" class="btn btn-warning">Set New Password</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">Danger Zone</div>
+                <div class="card-body">
+                    <!-- Update Role Form -->
+                    <h5 class="card-title">Change User Role</h5>
+                    <p class="card-text">Promoting a user to Admin gives them full access. This action requires your password.</p>
+                    <form method="POST" action="" class="mb-4">
+                        {{ role_form.hidden_tag() }}
+                        <div class="row">
+                            <div class="col-md-4 mb-2">
+                                {{ role_form.role.label(class="form-label") }}
+                                {{ role_form.role(class="form-select") }}
+                            </div>
+                            <div class="col-md-5 mb-2">
+                                {{ role_form.admin_password.label(class="form-label") }}
+                                {{ role_form.admin_password(class="form-control") }}
+                            </div>
+                            <div class="col-md-3 d-flex align-items-end mb-2">
+                                <button type="submit" name="submit_role" class="btn btn-warning w-100">Update Role</button>
+                            </div>
+                        </div>
+                    </form>
+                    <hr>
+                    <!-- Delete User Form -->
+                    <h5 class="card-title">Delete User</h5>
+                    <p class="card-text">This action is irreversible and will permanently delete the user. This requires your password.</p>
+                     <form method="POST" action="">
+                        {{ delete_form.hidden_tag() }}
+                         <div class="row">
+                            <div class="col-md-7 mb-2">
+                                {{ delete_form.admin_password.label(class="form-label") }}
+                                {{ delete_form.admin_password(class="form-control", placeholder="Enter your password to confirm deletion") }}
+                            </div>
+                            <div class="col-md-5 d-flex align-items-end mb-2">
+                                <button type="submit" name="submit_delete" class="btn btn-danger w-100">Delete User Permanently</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
